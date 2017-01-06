@@ -1,12 +1,16 @@
-#include "PhoenixApp.h"
-#include "Moose.h"
 #include "AppFactory.h"
 #include "ModulesApp.h"
+#include "Moose.h"
 #include "MooseSyntax.h"
+#include "PhoenixApp.h"
 
-template<>
-InputParameters validParams<PhoenixApp>()
-{
+#include "Aluminum2024.h"
+#include "Aluminum7075.h"
+#include "Atmosphere.h"
+#include "HeatConductionDMI.h"
+#include "Steatite.h"
+
+template <> InputParameters validParams<PhoenixApp>() {
   InputParameters params = validParams<MooseApp>();
 
   params.set<bool>("use_legacy_uo_initialization") = false;
@@ -16,9 +20,7 @@ InputParameters validParams<PhoenixApp>()
   return params;
 }
 
-PhoenixApp::PhoenixApp(InputParameters parameters) :
-    MooseApp(parameters)
-{
+PhoenixApp::PhoenixApp(InputParameters parameters) : MooseApp(parameters) {
   Moose::registerObjects(_factory);
   ModulesApp::registerObjects(_factory);
   PhoenixApp::registerObjects(_factory);
@@ -28,28 +30,31 @@ PhoenixApp::PhoenixApp(InputParameters parameters) :
   PhoenixApp::associateSyntax(_syntax, _action_factory);
 }
 
-PhoenixApp::~PhoenixApp()
-{
-}
+PhoenixApp::~PhoenixApp() {}
 
 // External entry point for dynamic application loading
 extern "C" void PhoenixApp__registerApps() { PhoenixApp::registerApps(); }
-void
-PhoenixApp::registerApps()
-{
-  registerApp(PhoenixApp);
-}
+void PhoenixApp::registerApps() { registerApp(PhoenixApp); }
 
 // External entry point for dynamic object registration
-extern "C" void PhoenixApp__registerObjects(Factory & factory) { PhoenixApp::registerObjects(factory); }
-void
-PhoenixApp::registerObjects(Factory & factory)
-{
+extern "C" void PhoenixApp__registerObjects(Factory &factory) {
+  PhoenixApp::registerObjects(factory);
+}
+void PhoenixApp::registerObjects(Factory &factory) {
+  // Materials
+  registerMaterial(Aluminum2024);
+  registerMaterial(Aluminum7075);
+  registerMaterial(Steatite);
+  registerMaterial(Atmosphere);
+
+  // Kernels
+  registerNamedKernel(HeatConductionKernelDMI, "HeatConductionDMI");
 }
 
 // External entry point for dynamic syntax association
-extern "C" void PhoenixApp__associateSyntax(Syntax & syntax, ActionFactory & action_factory) { PhoenixApp::associateSyntax(syntax, action_factory); }
-void
-PhoenixApp::associateSyntax(Syntax & /*syntax*/, ActionFactory & /*action_factory*/)
-{
+extern "C" void PhoenixApp__associateSyntax(Syntax &syntax,
+                                            ActionFactory &action_factory) {
+  PhoenixApp::associateSyntax(syntax, action_factory);
 }
+void PhoenixApp::associateSyntax(Syntax & /*syntax*/,
+                                 ActionFactory & /*action_factory*/) {}
