@@ -10,6 +10,8 @@
 #include "HeatConductionDMI.h"
 #include "Steatite.h"
 
+#include "NSExplicitTimestepSelector.h"
+
 template <> InputParameters validParams<PhoenixApp>() {
   InputParameters params = validParams<MooseApp>();
 
@@ -49,6 +51,9 @@ void PhoenixApp::registerObjects(Factory &factory) {
 
   // Kernels
   registerNamedKernel(HeatConductionKernelDMI, "HeatConductionDMI");
+
+  // Postprocessors
+  registerPostprocessor(NSExplicitTimestepSelector);
 }
 
 // External entry point for dynamic syntax association

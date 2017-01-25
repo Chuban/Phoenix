@@ -48,19 +48,27 @@ void Aluminum2024::computeQpProperties() {
 
   if (_temperature[_qp] <= 116) {
     _specific_heat[_qp] = 564.859;
+    _d_specific_heat_dT[_qp] = 0.;
   } else if (116 < _temperature[_qp] && _temperature[_qp] <= 700) {
     _specific_heat[_qp] = 198.8192 + 3.941858 * _temperature[_qp] +
                           -0.007384158 * T2 + 5.218285e-6 * T3;
+    _d_specific_heat_dT[_qp] =
+        3.941858 - 0.014768316 * _temperature[_qp] + 1.565485e-5 * T2;
   } else {
     _specific_heat[_qp] = 1129.75;
+    _d_specific_heat_dT[_qp] = 0.;
   }
 
   if (_temperature[_qp] <= 755) {
     _density[_qp] = 2813.898 + 0.02810992 * _temperature[_qp] +
                     -7.443022e-4 * T2 + 1.039896e-6 * T3 + -5.689519e-10 * T4;
+    _d_density_dT[_qp] = 0.02810992 - 0.0014886044 * _temperature[_qp] +
+                         3.11968e-6 * T2 - 2.2758076e-9 * T3;
   } else {
     _density[_qp] = 2673.52;
+    _d_density_dT[_qp] = 0.;
   }
 
   _epsilon[_qp] = 0.35;
+  _d_epsilon_dT[_qp] = 0.;
 }

@@ -1,9 +1,10 @@
-# This input file tests Dirichlet pressure in/outflow boundary conditions for the incompressible NS equations.
+# This input file tests outflow boundary conditions for the incompressible NS equations.
 
 [GlobalParams]
   gravity = '0 0 0'
   rho = 1
   mu = 1
+  integrate_p_by_parts = true
 []
 
 [Mesh]
@@ -19,16 +20,16 @@
 []
 
 [Variables]
-  [./p]
-    order = FIRST
-    family = LAGRANGE
-  [../]
   [./vel_x]
     order = SECOND
     family = LAGRANGE
   [../]
   [./vel_y]
     order = SECOND
+    family = LAGRANGE
+  [../]
+  [./p]
+    order = FIRST
     family = LAGRANGE
   [../]
 []
@@ -48,7 +49,6 @@
     v = vel_y
     p = p
     component = 0
-    integrate_p_by_parts = false
   [../]
   [./y_momentum_space]
     type = INSMomentumLaplaceForm
@@ -57,7 +57,6 @@
     v = vel_y
     p = p
     component = 1
-    integrate_p_by_parts = false
   [../]
 []
 
@@ -65,7 +64,7 @@
   [./x_no_slip]
     type = DirichletBC
     variable = vel_x
-    boundary = 'top bottom'
+    boundary = bottom
     value = 0.0
   [../]
   [./y_no_slip]
@@ -74,17 +73,11 @@
     boundary = 'left top bottom'
     value = 0.0
   [../]
-  [./inlet_p]
-    type = DirichletBC
-    variable = p
+  [./x_inlet]
+    type = FunctionDirichletBC
+    variable = vel_x
     boundary = left
-    value = 1.0
-  [../]
-  [./outlet_p]
-    type = DirichletBC
-    variable = p
-    boundary = right
-    value = 0.0
+    function = inlet_func
   [../]
 []
 
@@ -92,7 +85,7 @@
   [./SMP_PJFNK]
     type = SMP
     full = true
-    solve_type = PJFNK
+    solve_type = NEWTON
   [../]
 []
 
@@ -108,7 +101,15 @@
 []
 
 [Outputs]
-  file_base = open_bc_out_pressure_BC
-  exodus = true
+  [./out]
+    type = Exodus
+  [../]
+[]
+
+[Functions]
+  [./inlet_func]
+    type = ParsedFunction
+    value = '-4 * (y/2 - 0.5)^2 + 1'
+  [../]
 []
 

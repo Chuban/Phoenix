@@ -29,7 +29,19 @@
   [../]
 []
 
+[AuxVariables]
+  [./guage_pressure]
+    initial_condition = 500
+  [../]
+[]
+
 [Variables]
+  [./p]
+    initial_condition = 500
+  [../]
+  [./temperature]
+    initial_condition = 300
+  [../]
   [./vel_x]
     order = SECOND
     family = LAGRANGE
@@ -38,12 +50,15 @@
     order = SECOND
     family = LAGRANGE
   [../]
-  [./p]
-    order = FIRST
-    family = LAGRANGE
-  [../]
-  [./temperature]
-    initial_condition = 300
+[]
+
+[AuxKernels]
+  [./compute_guage_pressure]
+    type = ParsedAux
+    variable = guage_pressure
+    function = p
+    args = 'temperature p'
+    execute_on = 'LINEAR timestep_begin initial'
   [../]
 []
 
@@ -53,14 +68,14 @@
     variable = p
     u = vel_x
     v = vel_y
-    p = p
+    p = guage_pressure
   [../]
   [./x_momentum_space]
     type = INSMomentumLaplaceForm
     variable = vel_x
     u = vel_x
     v = vel_y
-    p = p
+    p = guage_pressure
     component = 0
     integrate_p_by_parts = false
   [../]
@@ -69,7 +84,7 @@
     variable = vel_y
     u = vel_x
     v = vel_y
-    p = p
+    p = guage_pressure
     component = 1
     integrate_p_by_parts = false
   [../]
@@ -119,7 +134,7 @@
     type = DirichletBC
     variable = p
     boundary = right
-    value = 0.0
+    value = 0
   [../]
   [./inlet_temperature]
     type = DirichletBC
@@ -131,7 +146,7 @@
     type = DirichletBC
     variable = temperature
     boundary = top_to_1
-    value = 1000
+    value = 325
   [../]
   [./outlet_temperature]
     type = NeumannBC
@@ -159,11 +174,11 @@
   petsc_options_iname = '-ksp_gmres_restart -pc_type -sub_pc_type -sub_pc_factor_levels'
   petsc_options_value = '300                bjacobi  ilu          4'
   line_search = none
-  nl_rel_tol = 1e-12
+  nl_rel_tol = 1e-9
   nl_max_its = 6
   l_tol = 1e-6
   l_max_its = 300
-  end_time = 30
+  end_time = 10
   [./TimeStepper]
     type = IterationAdaptiveDT
     dt = 1e-3
@@ -197,3 +212,9 @@
   exodus = true
 []
 
+[Functions]
+  [./inlet_func]
+    type = ParsedFunction
+    value = '-4 * (y - 0.5)^2 + 1'
+  [../]
+[]

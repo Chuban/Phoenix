@@ -1,6 +1,8 @@
 /************************************************************/
 /* Modified from HeatConduction.C in the heat_conduction    */
-/* module to make use of the derivative material interface. */
+/*  module to make use of the derivative material interface.*/
+/*  Note that conductivity is assumed to vary with          */
+/*  temperature only.                                       */
 /************************************************************/
 
 #include "HeatConductionDMI.h"
