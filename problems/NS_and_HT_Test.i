@@ -1,48 +1,39 @@
+[Variables]
+  [./test]
+    block = 0
+  [../]
+[]
+
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 20
-  ny = 20
+  nx = 10
+  ny = 10
   xmax = 0.1
   ymin = 0.
   ymax = 0.05
+  uniform_refine = 1
   elem_type = QUAD9
 []
 
 [MeshModifiers]
-  [./box_1]
+  [./wind_tunnel_box]
     type = SubdomainBoundingBox
-    top_right = '.1 0.025 0'
-    bottom_left = '.05 0 0'
+    top_right = '0.1 0.025 0'
+    bottom_left = '0 0 0'
     block_id = 1
   [../]
-  [./box_2]
-    type = SubdomainBoundingBox
-    top_right = '.04 0.025 0'
-    bottom_left = '0.0 0 0'
-    block_id = 2
+  [./dividing_wall]
+    type = SideSetsBetweenSubdomains
+    master_block = 0
+    new_boundary = center
+    paired_block = 1
+    depends_on = wind_tunnel_box
   [../]
-  [./box_3]
-    type = SubdomainBoundingBox
-    top_right = '0.1 0.05 0'
-    bottom_left = '0 0.025 0'
-    block_id = 3
-  [../]
-  [./break_boundaries]
+  [./wall_split]
     type = BreakBoundaryOnSubdomain
     boundaries = 'left right'
-  [../]
-  [./inner_wall]
-    type = SideSetsBetweenSubdomains
-    master_block = 3
-    new_boundary = 8
-    paired_block = '0 1 2'
-  [../]
-[]
-
-[Variables]
-  [./test]
-    block = 3
+    depends_on = wind_tunnel_box
   [../]
 []
 
@@ -54,70 +45,93 @@
 []
 
 [Kernels]
-  [./test_kernel]
+  active = 'diff'
+  [./diff]
     type = Diffusion
     variable = test
-    block = 3
+  [../]
+  [./rho_null]
+    type = NullKernel
+    variable = rho
+    block = 0
+  [../]
+  [./rhou_null]
+    type = NullKernel
+    variable = rhou
+    block = 0
+  [../]
+  [./rhov_null]
+    type = NullKernel
+    variable = rhov
+    block = 0
+  [../]
+  [./rhoE_null]
+    type = NullKernel
+    variable = rhoE
+    block = 0
   [../]
 []
 
 [BCs]
-  active = 'cold_wall test_left wall_vel_y test_right rhou_boundary rho_boundary'
-  [./rho_boundary]
-    type = DirichletBC
-    variable = rho
-    boundary = 'left_to_2 bottom 8'
-    value = 1.161
-  [../]
-  [./wall_vel_y]
-    type = DirichletBC
-    variable = rhov
-    boundary = 'left_to_2 bottom 8'
-    value = 0
-  [../]
   [./cold_wall]
     type = NSThermalBC
     variable = rhoE
-    boundary = left_to_2
+    boundary = left_to_1
     initial = 300
     fluid_properties = ideal_gas
     rho = rho
     duration = 1
     final = 300
   [../]
-  [./rhou_boundary]
+  [./rhou_block_1]
     type = FunctionDirichletBC
     variable = rhou
-    boundary = 'left_to_2 bottom 8'
+    boundary = 'bottom left_to_1 center'
     function = rhou_inlet_func
   [../]
-  [./hot_wall_const]
-    type = NSThermalBC
-    variable = rhoE
-    boundary = top_to_0
-    initial = 300
-    fluid_properties = ideal_gas
-    rho = rho
-    duration = 0.001
-    final = 500
+  [./rhou_block_0]
+    type = DirichletBC
+    variable = rhou
+    boundary = 'left_to_0 top right_to_0'
+    value = 0
   [../]
-  [./hot_wall_flux]
+  [./rhov]
+    type = DirichletBC
+    variable = rhov
+    boundary = 'top left center bottom right_to_0'
+    value = 0
+  [../]
+  [./rho_neumann]
+    type = NeumannBC
+    variable = rho
+    boundary = 'bottom center top'
+  [../]
+  [./rhou_neumann_center]
+    type = NeumannBC
+    variable = rhou
+    boundary = 'bottom center top'
+  [../]
+  [./rhov_neumann_center]
+    type = NeumannBC
+    variable = rhov
+    boundary = 'bottom center top'
+  [../]
+  [./rhoE_neumann_center]
     type = NeumannBC
     variable = rhoE
-    boundary = top_to_0
-    value = 1e4
-  [../]
-  [./test_right]
-    type = DirichletBC
-    variable = test
-    boundary = right_to_3
-    value = 0
+    boundary = 'bottom center top'
   [../]
   [./test_left]
     type = DirichletBC
     variable = test
-    boundary = left_to_3
+    boundary = left_to_0
     value = 1
+  [../]
+  [./test_right]
+    type = DirichletBC
+    variable = test
+    boundary = right_to_0
+    value = 0
   [../]
 []
 
@@ -128,23 +142,22 @@
       gamma = 1.4
       R = 287
       k = 1
-      mu = 1
+      mu = 1.846e-5
     [../]
   [../]
   [./NavierStokes]
     [./Variables]
-      # 'rho rhou rhov   rhoE'
+      # 'rho rhou rhov rhoE'
       scaling = '1.  1.    1.    9.869232667160121e-6'
-      block = '0 1 2'
+      block = 1
     [../]
     [./Kernels]
       fluid_properties = ideal_gas
-      block = '0 1 2'
     [../]
     [./BCs]
       [./inlet]
         type = NSWeakStagnationInletBC
-        boundary = left_to_2
+        boundary = left_to_1
         stagnation_pressure = 102036 # Pa, Mach=0.1 at 1 atm
         stagnation_temperature = 300.6 # K, Mach=0.1 at 1 atm
         sx = 1.
@@ -153,7 +166,7 @@
       [../]
       [./solid_walls]
         type = NSNoPenetrationBC
-        boundary = '8 bottom'
+        boundary = 'center bottom top'
         fluid_properties = ideal_gas
       [../]
       [./outlet]
@@ -167,13 +180,14 @@
 []
 
 [Materials]
+  active = 'fluid'
   [./fluid]
     # This value is not used in the Euler equations, but it *is* used
     # by the stabilization parameter computation, which it decreases
     # the amount of artificial viscosity added, so it's best to use a
     # realistic value.
     type = Air
-    block = '0 1 2 3'
+    block = '0 1'
     rho = rho
     rhou = rhou
     rhov = rhov
@@ -182,10 +196,15 @@
     vel_y = vel_y
     temperature = temperature
     enthalpy = enthalpy
-    dynamic_viscosity = 1
+    dynamic_viscosity = 1.846e-5
     fluid_properties = ideal_gas
     vel_z = 0
     rhow = 0
+  [../]
+  [./Al2024]
+    type = Aluminum2024
+    block = 0
+    temperature = HT_temperature
   [../]
 []
 
@@ -198,6 +217,7 @@
     rho = rho
     pressure = pressure
     fluid_properties = ideal_gas
+    block = 1
   [../]
 []
 
@@ -213,14 +233,20 @@
   # We use trapezoidal quadrature.  This improves stability by
   # mimicking the "group variable" discretization approach.
   type = Transient
+  num_steps = 5
   dt = 1e-5
   dtmin = 1.e-12
   start_time = 0.0
-  num_steps = 5
   nl_rel_tol = 1e-9
   nl_max_its = 6
   l_tol = 1e-4
   l_max_its = 100
+  [./TimeStepper]
+    type = IterationAdaptiveDT
+    dt = 1e-5
+    cutback_factor = 0.8
+    growth_factor = 1.25
+  [../]
   [./Quadrature]
     type = TRAP
     order = FIRST
@@ -231,11 +257,12 @@
 []
 
 [Outputs]
+  interval = 1
   exodus = true
   [./exodus_oversample]
-     type = Exodus
-     refinements = 10
-     file_base = oversample
+    type = Exodus
+    file_base = oversample
+    refinements = 1
   [../]
 []
 
@@ -244,24 +271,28 @@
     variable = rho
     type = ConstantIC
     value = 1.161
-    block = '0 1 2'
-  [../]
-  [./rhou_IC]
-    function = rhou_inlet_func
-    variable = rhou
-    type = FunctionIC
-    block = '0 1 2'
   [../]
   [./rhov_IC]
     variable = rhov
     type = ConstantIC
     value = 0
-    block = '0 1 2'
   [../]
   [./rhoE_IC]
     variable = rhoE
     type = ConstantIC
     value = 2.5e5
-    block = '0 1 2'
+  [../]
+  [./rhou_block_1]
+    function = rhou_inlet_func
+    variable = rhou
+    type = FunctionIC
+    block = 1
+  [../]
+  [./rhou_block_0]
+    variable = rhou
+    value = 0
+    type = ConstantIC
+    block = 0
   [../]
 []
+

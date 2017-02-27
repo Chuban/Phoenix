@@ -7,7 +7,9 @@
 #include "Aluminum2024.h"
 #include "Aluminum7075.h"
 #include "Atmosphere.h"
+#include "ConstantValue.h"
 #include "HeatConductionDMI.h"
+#include "NSInterfaceTemperature.h"
 #include "Steatite.h"
 
 #include "NSExplicitTimestepSelector.h"
@@ -51,6 +53,8 @@ void PhoenixApp::registerObjects(Factory &factory) {
 
   // Kernels
   registerNamedKernel(HeatConductionKernelDMI, "HeatConductionDMI");
+  registerKernel(NSInterfaceTemperature);
+  registerKernel(ConstantValue);
 
   // Postprocessors
   registerPostprocessor(NSExplicitTimestepSelector);
