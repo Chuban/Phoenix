@@ -10,6 +10,8 @@
 #include "HeatConductionDMI.h"
 #include "Steatite.h"
 #include "InterfaceDiffusion.h"
+#include "NSThermalMatchBC.h"
+#include "NSThermalFluxInterface.h"
 
 #include "NSExplicitTimestepSelector.h"
 
@@ -53,6 +55,8 @@ void PhoenixApp::registerObjects(Factory &factory) {
   // Kernels
   registerNamedKernel(HeatConductionKernelDMI, "HeatConductionDMI");
   registerKernel(InterfaceDiffusion);
+  registerKernel(NSThermalMatchBC);
+  registerKernel(NSThermalFluxInterface);
 
   // Postprocessors
   registerPostprocessor(NSExplicitTimestepSelector);

@@ -98,14 +98,16 @@
   [./test_top]
     type = DirichletBC
     variable = test
-    boundary = top
-    value = 2.50e5
+    boundary = 'top left_to_0'
+    value = 300
   [../]
   [./rhoE_match_test]
-    type = MatchedValueBC
+    type = NSThermalMatchBC
     variable = rhoE
     boundary = center
     v = test
+    fluid_properties = ideal_gas
+    rho = rho
   [../]
 []
 
@@ -275,7 +277,9 @@
     neighbor_var = rhoE
     variable = test
     boundary = center
-    type = InterfaceDiffusion
+    type = NSThermalFluxInterface
+    fluid_properties = ideal_gas
+    rho = rho
   [../]
 []
 
