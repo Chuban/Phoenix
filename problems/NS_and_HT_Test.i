@@ -45,30 +45,9 @@
 []
 
 [Kernels]
-  active = 'diff'
   [./diff]
     type = Diffusion
     variable = test
-  [../]
-  [./rho_null]
-    type = NullKernel
-    variable = rho
-    block = 0
-  [../]
-  [./rhou_null]
-    type = NullKernel
-    variable = rhou
-    block = 0
-  [../]
-  [./rhov_null]
-    type = NullKernel
-    variable = rhov
-    block = 0
-  [../]
-  [./rhoE_null]
-    type = NullKernel
-    variable = rhoE
-    block = 0
   [../]
 []
 
@@ -116,22 +95,17 @@
     variable = rhov
     boundary = 'bottom center top'
   [../]
-  [./rhoE_neumann_center]
-    type = NeumannBC
+  [./test_top]
+    type = DirichletBC
+    variable = test
+    boundary = top
+    value = 2.50e5
+  [../]
+  [./rhoE_match_test]
+    type = MatchedValueBC
     variable = rhoE
-    boundary = 'bottom center top'
-  [../]
-  [./test_left]
-    type = DirichletBC
-    variable = test
-    boundary = left_to_0
-    value = 1
-  [../]
-  [./test_right]
-    type = DirichletBC
-    variable = test
-    boundary = right_to_0
-    value = 0
+    boundary = center
+    v = test
   [../]
 []
 
@@ -166,7 +140,7 @@
       [../]
       [./solid_walls]
         type = NSNoPenetrationBC
-        boundary = 'center bottom top'
+        boundary = 'center bottom'
         fluid_properties = ideal_gas
       [../]
       [./outlet]
@@ -234,7 +208,7 @@
   # mimicking the "group variable" discretization approach.
   type = Transient
   num_steps = 5
-  dt = 1e-5
+  dt = 1e-6
   dtmin = 1.e-12
   start_time = 0.0
   nl_rel_tol = 1e-9
@@ -293,6 +267,15 @@
     value = 0
     type = ConstantIC
     block = 0
+  [../]
+[]
+
+[InterfaceKernels]
+  [./interface_flux]
+    neighbor_var = rhoE
+    variable = test
+    boundary = center
+    type = InterfaceDiffusion
   [../]
 []
 

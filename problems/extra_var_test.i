@@ -1,5 +1,6 @@
 [Variables]
   [./test]
+    block = 0
   [../]
 []
 
@@ -51,6 +52,7 @@
 []
 
 [BCs]
+  active = 'cold_wall rhou_neumann_center rhou_block_1 rhou_block_0 test_top rho_neumann rhov rhov_neumann_center'
   [./cold_wall]
     type = NSThermalBC
     variable = rhoE
@@ -99,17 +101,11 @@
     variable = rhoE
     boundary = 'bottom center top'
   [../]
-  [./test_left]
+  [./test_top]
     type = DirichletBC
     variable = test
-    boundary = left
-    value = 1
-  [../]
-  [./test_right]
-    type = DirichletBC
-    variable = test
-    boundary = right
-    value = 0
+    boundary = top
+    value = 2.52e5
   [../]
 []
 
@@ -127,6 +123,7 @@
     [./Variables]
       # 'rho rhou rhov rhoE'
       scaling = '1.  1.    1.    9.869232667160121e-6'
+      block = 1
     [../]
     [./Kernels]
       fluid_properties = ideal_gas
@@ -270,6 +267,21 @@
     value = 0
     type = ConstantIC
     block = 0
+  [../]
+[]
+
+[InterfaceKernels]
+  [./test_interface_rhoE]
+    neighbor_var = rhoE
+    variable = test
+    boundary = center
+    type = NSThermalInterface
+    rhow = 0
+    rhov = rhov
+    rhou = rhou
+    fluid_properties = ideal_gas
+    rho = rho
+    rhoE = rhoE
   [../]
 []
 
