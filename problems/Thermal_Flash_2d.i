@@ -3,18 +3,19 @@
   dim = 2
   nx = 10
   ny = 10
+  xmin = -0.1
   xmax = 0.1
   ymin = 0.
-  ymax = 0.05
+  ymax = 0.125
   uniform_refine = 1
-  elem_type = QUAD
+  elem_type = QUAD9
 []
 
 [MeshModifiers]
   [./wind_tunnel_box]
     type = SubdomainBoundingBox
-    top_right = '0.1 0.025 0'
-    bottom_left = '0 0 0'
+    top_right = '0.1 0.1 0'
+    bottom_left = '-0.1 0 0'
     block_id = 1
   [../]
   [./dividing_wall]
@@ -42,7 +43,7 @@
 [Functions]
   [./rhou_inlet_func]
     type = ParsedFunction
-    value = '(-4 * (40 * y - 0.5)^2 + 1) * 1.161 * 34.7'
+    value = '(-4 * (10 * y - 0.5)^2 + 1) * 1.161 * 34.7'
   [../]
 []
 
@@ -51,13 +52,17 @@
     type = HeatConductionDMI
     variable = solid_temperature
   [../]
+  [./thermal_time]
+    type = SpecificHeatConductionTimeDerivative
+    variable = solid_temperature
+  [../]
 []
 
 [BCs]
   [./rhoE_thermal_inlet]
     type = NSThermalBC
     variable = rhoE
-    boundary = left_to_1
+    boundary = 'left_to_1 bottom'
     initial = 300
     fluid_properties = ideal_gas
     rho = rho
@@ -110,6 +115,11 @@
     fluid_properties = ideal_gas
     rho = rho
     v = solid_temperature
+  [../]
+  [./rhoE_neumann]
+    type = NeumannBC
+    variable = rhoE
+    boundary = bottom
   [../]
 []
 
@@ -196,6 +206,9 @@
     fluid_properties = ideal_gas
     block = 1
   [../]
+  [./delta_t]
+    type = TimestepSize
+  [../]
 []
 
 [Preconditioning]
@@ -210,7 +223,7 @@
   # We use trapezoidal quadrature.  This improves stability by
   # mimicking the "group variable" discretization approach.
   type = Transient
-  num_steps = 5
+  num_steps = 100
   dt = 1e-6
   dtmin = 1.e-12
   start_time = 0.0
@@ -218,6 +231,8 @@
   nl_max_its = 6
   l_tol = 1e-4
   l_max_its = 100
+  petsc_options_iname = '-ksp_gmres_restart -pc_type -sub_pc_type -sub_pc_factor_levels'
+  petsc_options_value = '300                                 bjacobi    ilu                      4'
   [./TimeStepper]
     type = IterationAdaptiveDT
     dt = 1e-5

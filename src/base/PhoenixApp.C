@@ -13,6 +13,8 @@
 #include "NSThermalMatchBC.h"
 #include "NSThermalFluxInterface.h"
 
+#include "SumAux.h"
+
 #include "NSExplicitTimestepSelector.h"
 
 template <> InputParameters validParams<PhoenixApp>() {
@@ -57,6 +59,9 @@ void PhoenixApp::registerObjects(Factory &factory) {
   registerKernel(InterfaceDiffusion);
   registerKernel(NSThermalMatchBC);
   registerKernel(NSThermalFluxInterface);
+
+  // Auxkernels
+  registerAuxKernel(SumAux);
 
   // Postprocessors
   registerPostprocessor(NSExplicitTimestepSelector);

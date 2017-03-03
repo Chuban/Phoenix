@@ -10,12 +10,12 @@ class HeatConductionKernelDMI;
 template <> InputParameters validParams<HeatConductionKernelDMI>();
 
 class HeatConductionKernelDMI : public DerivativeMaterialInterface<Diffusion> {
+
 public:
   HeatConductionKernelDMI(const InputParameters &parameters);
 
 protected:
   virtual Real computeQpResidual();
-
   virtual Real computeQpJacobian();
 
 private:
