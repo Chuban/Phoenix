@@ -12,10 +12,9 @@
 #include "InterfaceDiffusion.h"
 #include "NSThermalMatchBC.h"
 #include "NSThermalFluxInterface.h"
-
-#include "SumAux.h"
-
-#include "NSExplicitTimestepSelector.h"
+#include "CNSFVNoSlipBCUserObject.h"
+#include "CNSFVHLLCViscousBoundaryFlux.h"
+#include "CNSFVHLLCViscousInternalSideFlux.h"
 
 template <> InputParameters validParams<PhoenixApp>() {
   InputParameters params = validParams<MooseApp>();
@@ -61,10 +60,13 @@ void PhoenixApp::registerObjects(Factory &factory) {
   registerKernel(NSThermalFluxInterface);
 
   // Auxkernels
-  registerAuxKernel(SumAux);
 
   // Postprocessors
-  registerPostprocessor(NSExplicitTimestepSelector);
+
+  // User Objects
+  registerUserObject(CNSFVNoSlipBCUserObject);
+  registerUserObject(CNSFVHLLCViscousBoundaryFlux);
+  registerUserObject(CNSFVHLLCViscousInternalSideFlux);
 }
 
 // External entry point for dynamic syntax association

@@ -1,133 +1,70 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 10
+  nx = 20
   ny = 10
   xmin = -0.1
   xmax = 0.1
-  ymin = 0.
-  ymax = 0.125
+  ymin = 0.05
+  ymax = 0.1
   uniform_refine = 1
   elem_type = QUAD9
 []
 
-[MeshModifiers]
-  [./wind_tunnel_box]
-    type = SubdomainBoundingBox
-    top_right = '0.1 0.1 0'
-    bottom_left = '-0.1 0 0'
-    block_id = 1
-  [../]
-  [./dividing_wall]
-    type = SideSetsBetweenSubdomains
-    master_block = 0
-    new_boundary = center
-    paired_block = 1
-    depends_on = wind_tunnel_box
-  [../]
-  [./wall_split]
-    type = BreakBoundaryOnSubdomain
-    boundaries = 'left right'
-    depends_on = wind_tunnel_box
-  [../]
-  [./coupon_box]
-    type = SubdomainBoundingBox
-    bottom_left = '-0.025 0.1 0'
-    depends_on = dividing_wall
-    top_right = '0.025 0.110 0'
-    block_id = 2
-  [../]
-[]
-
-[Variables]
-  [./solid_temperature]
-    scaling = 0.001
-    block = '0 2'
-    initial_condition = 300
+[AuxVariables]
+  [./rhoE_bounds]
   [../]
 []
 
 [Functions]
   [./rhou_inlet_func]
     type = ParsedFunction
-    value = '(-4 * (10 * y - 0.5)^2 + 1) * 1.161 * 34.7'
-  [../]
-[]
-
-[Kernels]
-  [./thermal_space]
-    type = HeatConductionDMI
-    variable = solid_temperature
-  [../]
-  [./thermal_time]
-    type = SpecificHeatConductionTimeDerivative
-    variable = solid_temperature
+    value = '(-4 * (10 * (y) - 0.5)^2 + 1) * 1.161 * 34.7'
   [../]
 []
 
 [BCs]
-  active = 'solid_temperature rhou_dirichlet_block_0 rhou_dirichlet_block_1 rhoE_match_solid_temperature rhoE_thermal_inlet rhov_dirichlet rhoE_neumann'
-  [./rhoE_thermal_inlet]
+  [./rhov_dirichlet]
+    type = DirichletBC
+    variable = rhov
+    boundary = 'top bottom'
+    value = 0
+  [../]
+  [./rho_neumann]
+    type = NeumannBC
+    variable = rho
+    boundary = 'bottom left right'
+  [../]
+  [./rhou_neumann]
+    type = NeumannBC
+    variable = rhou
+    boundary = 'bottom left right'
+  [../]
+  [./rhov_neumann]
+    type = NeumannBC
+    variable = rhov
+    boundary = 'bottom left right'
+  [../]
+  [./rhoE_neumann]
+    type = NeumannBC
+    variable = rhoE
+    boundary = 'top bottom left right'
+  [../]
+  [./rhoE_thermal]
     type = NSThermalBC
     variable = rhoE
-    boundary = 'left_to_1 bottom'
+    boundary = 'top left'
     initial = 300
     fluid_properties = ideal_gas
     rho = rho
     duration = 1
     final = 300
   [../]
-  [./rhou_dirichlet_block_1]
-    type = FunctionDirichletBC
-    variable = rhou
-    boundary = 'bottom left_to_1 center'
-    function = rhou_inlet_func
-  [../]
-  [./rhou_dirichlet_block_0]
+  [./rhou_dirichlet]
     type = DirichletBC
     variable = rhou
-    boundary = 'left_to_0 top right_to_0'
+    boundary = top
     value = 0
-  [../]
-  [./rhov_dirichlet]
-    type = DirichletBC
-    variable = rhov
-    boundary = 'top left_to_0 center bottom right_to_0'
-    value = 0
-  [../]
-  [./rho_neumann]
-    type = NeumannBC
-    variable = rho
-    boundary = 'bottom center top'
-  [../]
-  [./rhou_neumann]
-    type = NeumannBC
-    variable = rhou
-    boundary = 'bottom center top'
-  [../]
-  [./rhov_neumann]
-    type = NeumannBC
-    variable = rhov
-    boundary = 'bottom center top'
-  [../]
-  [./rhoE_match_solid_temperature]
-    type = NSThermalMatchBC
-    variable = rhoE
-    boundary = center
-    fluid_properties = ideal_gas
-    rho = rho
-    v = solid_temperature
-  [../]
-  [./rhoE_neumann]
-    type = NeumannBC
-    variable = rhoE
-    boundary = 'bottom left_to_1 right_to_1'
-  [../]
-  [./solid_temperature]
-    type = DirichletBC
-    variable = solid_temperature
-    boundary = 'top left_to_0 right_to_0'
-    value = 300
   [../]
 []
 
@@ -145,7 +82,6 @@
     [./Variables]
       # 'rho rhou rhov rhoE'
       scaling = '1.  1.    1.    9.869232667160121e-6'
-      block = 1
     [../]
     [./Kernels]
       fluid_properties = ideal_gas
@@ -153,7 +89,7 @@
     [./BCs]
       [./inlet]
         type = NSWeakStagnationInletBC
-        boundary = left_to_1
+        boundary = left
         stagnation_pressure = 102036 # Pa, Mach=0.1 at 1 atm
         stagnation_temperature = 300.6 # K, Mach=0.1 at 1 atm
         sx = 1.
@@ -162,12 +98,12 @@
       [../]
       [./solid_walls]
         type = NSNoPenetrationBC
-        boundary = 'center bottom'
+        boundary = top
         fluid_properties = ideal_gas
       [../]
       [./outlet]
         type = NSStaticPressureOutletBC
-        boundary = right_to_1
+        boundary = right
         specified_pressure = 99842.826 # Pa
         fluid_properties = ideal_gas
       [../]
@@ -176,18 +112,12 @@
 []
 
 [Materials]
-  [./Al2024]
-    type = Aluminum2024
-    block = 2
-    temperature = solid_temperature
-  [../]
   [./NS_fluid]
     # This value is not used in the Euler equations, but it *is* used
     # by the stabilization parameter computation, which it decreases
     # the amount of artificial viscosity added, so it's best to use a
     # realistic value.
     type = Air
-    block = 1
     vel_y = vel_y
     vel_x = vel_x
     vel_z = 0
@@ -201,11 +131,6 @@
     dynamic_viscosity = 1.846e-5
     temperature = temperature
   [../]
-  [./Steatite]
-    type = Steatite
-    block = 0
-    temperature = solid_temperature
-  [../]
 []
 
 [Postprocessors]
@@ -217,7 +142,6 @@
     rho = rho
     pressure = pressure
     fluid_properties = ideal_gas
-    block = 1
   [../]
   [./delta_t]
     type = TimestepSize
@@ -236,7 +160,6 @@
   # We use trapezoidal quadrature.  This improves stability by
   # mimicking the "group variable" discretization approach.
   type = Transient
-  num_steps = 5
   dt = 1e-6
   dtmin = 1.e-12
   start_time = 0.0
@@ -244,8 +167,8 @@
   nl_max_its = 6
   l_tol = 1e-4
   l_max_its = 100
-  petsc_options_iname = '-ksp_gmres_restart -pc_type -sub_pc_type -sub_pc_factor_levels'
-  petsc_options_value = '300                bjacobi  ilu          4'
+  petsc_options_iname = '-ksp_gmres_restart -pc_type -sub_pc_type -sub_pc_factor_levels -snes_type'
+  petsc_options_value = '300                bjacobi  ilu          4 vinewtonrsls'
   end_time = 1
   [./TimeStepper]
     type = IterationAdaptiveDT
@@ -261,10 +184,43 @@
   [../]
 []
 
+[Adaptivity]
+  marker = combo_marker
+  max_h_level = 6
+  initial_marker = combo_marker
+  [./Indicators]
+    [./rho_indicator]
+      type = GradientJumpIndicator
+      variable = rho
+    [../]
+    [./rhou_indicator]
+      type = GradientJumpIndicator
+      variable = rhou
+    [../]
+  [../]
+  [./Markers]
+    [./rho_marker]
+      type = ErrorFractionMarker
+      coarsen = 0.3
+      indicator = rho_indicator
+      refine = 0.3
+    [../]
+    [./rhou_marker]
+      type = ErrorFractionMarker
+      coarsen = 0.3
+      indicator = rhou_indicator
+      refine = 0.2
+    [../]
+    [./combo_marker]
+      type = ComboMarker
+      markers = 'rho_marker rhou_marker'
+    [../]
+  [../]
+[]
+
 [Outputs]
   exodus = true
   [./exodux_output]
-    refinements = 1
     type = Exodus
   [../]
 []
@@ -285,28 +241,20 @@
     type = ConstantIC
     value = 2.5e5
   [../]
-  [./rhou_IC_block_1]
+  [./rhou_IC]
     function = rhou_inlet_func
     variable = rhou
     type = FunctionIC
-    block = 1
-  [../]
-  [./rhou_IC_block_0]
-    variable = rhou
-    value = 0
-    type = ConstantIC
-    block = 0
   [../]
 []
 
-[InterfaceKernels]
-  [./thermal_flux_interface]
-    neighbor_var = rhoE
-    fluid_properties = ideal_gas
-    rho = rho
-    variable = solid_temperature
-    boundary = center
-    type = NSThermalFluxInterface
+[Bounds]
+  [./bound_rhoE]
+    upper = 2.560e5
+    lower = 2.495e5
+    bounded_variable = rhoE
+    variable = rhoE_bounds
+    type = BoundsAux
   [../]
 []
 

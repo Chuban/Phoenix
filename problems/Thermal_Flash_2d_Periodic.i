@@ -1,45 +1,11 @@
 [Mesh]
-  type = GeneratedMesh
+  type = FileMesh
+  file = ../meshes/WAXTS_Channel.e
   dim = 2
-  nx = 10
-  ny = 10
-  xmin = -0.1
-  xmax = 0.1
-  ymin = 0.
-  ymax = 0.125
-  uniform_refine = 1
-  elem_type = QUAD9
-[]
-
-[MeshModifiers]
-  [./wind_tunnel_box]
-    type = SubdomainBoundingBox
-    top_right = '0.1 0.1 0'
-    bottom_left = '-0.1 0 0'
-    block_id = 1
-  [../]
-  [./dividing_wall]
-    type = SideSetsBetweenSubdomains
-    master_block = 0
-    new_boundary = center
-    paired_block = 1
-    depends_on = wind_tunnel_box
-  [../]
-  [./wall_split]
-    type = BreakBoundaryOnSubdomain
-    boundaries = 'left right'
-    depends_on = wind_tunnel_box
-  [../]
-  [./coupon_box]
-    type = SubdomainBoundingBox
-    bottom_left = '-0.025 0.1 0'
-    depends_on = dividing_wall
-    top_right = '0.025 0.110 0'
-    block_id = 2
-  [../]
 []
 
 [Variables]
+  active = ''
   [./solid_temperature]
     scaling = 0.001
     block = '0 2'
@@ -54,80 +20,75 @@
   [../]
 []
 
-[Kernels]
-  [./thermal_space]
-    type = HeatConductionDMI
-    variable = solid_temperature
-  [../]
-  [./thermal_time]
-    type = SpecificHeatConductionTimeDerivative
-    variable = solid_temperature
-  [../]
-[]
-
 [BCs]
-  active = 'solid_temperature rhou_dirichlet_block_0 rhou_dirichlet_block_1 rhoE_match_solid_temperature rhoE_thermal_inlet rhov_dirichlet rhoE_neumann'
-  [./rhoE_thermal_inlet]
+  active = 'Periodic rhoE_thermal rhou_dirichlet rhov_dirichlet rhoE_neumann'
+  [./rhov_dirichlet]
+    type = DirichletBC
+    variable = rhov
+    boundary = 'top bottom'
+    value = 0
+  [../]
+  [./rho_neumann]
+    type = NeumannBC
+    variable = rho
+    boundary = 'bottom top'
+  [../]
+  [./rhou_neumann]
+    type = NeumannBC
+    variable = rhou
+    boundary = 'top bottom'
+  [../]
+  [./rhov_neumann]
+    type = NeumannBC
+    variable = rhov
+    boundary = 'bottom top'
+  [../]
+  [./rhoE_neumann]
+    type = NeumannBC
+    variable = rhoE
+    boundary = 'top bottom left right'
+  [../]
+  [./Periodic]
+    [./rhou_periodic]
+      variable = rhou
+      translation = '-0.2 0 0'
+      secondary = left
+      primary = right
+    [../]
+    [./rhov_periodic]
+      variable = rhov
+      translation = '-0.2 0 0'
+      secondary = left
+      primary = right
+    [../]
+    [./rhoE_periodic]
+      variable = rhoE
+      translation = '-0.2 0 0'
+      secondary = left
+      primary = right
+    [../]
+    [./rho_periodic]
+      variable = rho
+      translation = '-0.2 0 0'
+      secondary = left
+      primary = right
+    [../]
+  [../]
+  [./rhoE_thermal]
     type = NSThermalBC
     variable = rhoE
-    boundary = 'left_to_1 bottom'
+    boundary = 'top bottom'
     initial = 300
     fluid_properties = ideal_gas
     rho = rho
     duration = 1
     final = 300
   [../]
-  [./rhou_dirichlet_block_1]
+  [./rhou_dirichlet]
     type = FunctionDirichletBC
     variable = rhou
-    boundary = 'bottom left_to_1 center'
+    boundary = 'top bottom'
     function = rhou_inlet_func
-  [../]
-  [./rhou_dirichlet_block_0]
-    type = DirichletBC
-    variable = rhou
-    boundary = 'left_to_0 top right_to_0'
-    value = 0
-  [../]
-  [./rhov_dirichlet]
-    type = DirichletBC
-    variable = rhov
-    boundary = 'top left_to_0 center bottom right_to_0'
-    value = 0
-  [../]
-  [./rho_neumann]
-    type = NeumannBC
-    variable = rho
-    boundary = 'bottom center top'
-  [../]
-  [./rhou_neumann]
-    type = NeumannBC
-    variable = rhou
-    boundary = 'bottom center top'
-  [../]
-  [./rhov_neumann]
-    type = NeumannBC
-    variable = rhov
-    boundary = 'bottom center top'
-  [../]
-  [./rhoE_match_solid_temperature]
-    type = NSThermalMatchBC
-    variable = rhoE
-    boundary = center
-    fluid_properties = ideal_gas
-    rho = rho
-    v = solid_temperature
-  [../]
-  [./rhoE_neumann]
-    type = NeumannBC
-    variable = rhoE
-    boundary = 'bottom left_to_1 right_to_1'
-  [../]
-  [./solid_temperature]
-    type = DirichletBC
-    variable = solid_temperature
-    boundary = 'top left_to_0 right_to_0'
-    value = 300
   [../]
 []
 
@@ -153,7 +114,7 @@
     [./BCs]
       [./inlet]
         type = NSWeakStagnationInletBC
-        boundary = left_to_1
+        boundary = left
         stagnation_pressure = 102036 # Pa, Mach=0.1 at 1 atm
         stagnation_temperature = 300.6 # K, Mach=0.1 at 1 atm
         sx = 1.
@@ -162,12 +123,12 @@
       [../]
       [./solid_walls]
         type = NSNoPenetrationBC
-        boundary = 'center bottom'
+        boundary = 'top bottom'
         fluid_properties = ideal_gas
       [../]
       [./outlet]
         type = NSStaticPressureOutletBC
-        boundary = right_to_1
+        boundary = right
         specified_pressure = 99842.826 # Pa
         fluid_properties = ideal_gas
       [../]
@@ -176,11 +137,6 @@
 []
 
 [Materials]
-  [./Al2024]
-    type = Aluminum2024
-    block = 2
-    temperature = solid_temperature
-  [../]
   [./NS_fluid]
     # This value is not used in the Euler equations, but it *is* used
     # by the stabilization parameter computation, which it decreases
@@ -200,11 +156,6 @@
     rho = rho
     dynamic_viscosity = 1.846e-5
     temperature = temperature
-  [../]
-  [./Steatite]
-    type = Steatite
-    block = 0
-    temperature = solid_temperature
   [../]
 []
 
@@ -236,7 +187,7 @@
   # We use trapezoidal quadrature.  This improves stability by
   # mimicking the "group variable" discretization approach.
   type = Transient
-  num_steps = 5
+  num_steps = 100
   dt = 1e-6
   dtmin = 1.e-12
   start_time = 0.0
@@ -264,7 +215,6 @@
 [Outputs]
   exodus = true
   [./exodux_output]
-    refinements = 1
     type = Exodus
   [../]
 []
@@ -289,24 +239,6 @@
     function = rhou_inlet_func
     variable = rhou
     type = FunctionIC
-    block = 1
-  [../]
-  [./rhou_IC_block_0]
-    variable = rhou
-    value = 0
-    type = ConstantIC
-    block = 0
-  [../]
-[]
-
-[InterfaceKernels]
-  [./thermal_flux_interface]
-    neighbor_var = rhoE
-    fluid_properties = ideal_gas
-    rho = rho
-    variable = solid_temperature
-    boundary = center
-    type = NSThermalFluxInterface
   [../]
 []
 
