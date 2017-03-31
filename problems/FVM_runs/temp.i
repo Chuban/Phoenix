@@ -112,6 +112,8 @@
   [./rhoe]
   [../]
   [./temperature]
+    family = LAGRANGE
+    order = FIRST
   [../]
 []
 

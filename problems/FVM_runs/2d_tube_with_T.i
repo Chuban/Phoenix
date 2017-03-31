@@ -29,39 +29,11 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 60
+  nx = 40
   ny = 40
   xmax = 0.5
-  ymax = 0.15
+  ymax = 0.1
   elem_type = QUAD
-[]
-
-[MeshModifiers]
-  [./wind_tunnel_bounding_box]
-    type = SubdomainBoundingBox
-    bottom_left = '0 0 0'
-    top_right = '0.5 0.1 0'
-    block_name = wind_tunnel
-    block_id = 1
-  [../]
-  [./rename_solid_wall]
-    type = RenameBlock
-    new_block_name = solid_wall
-    depends_on = wind_tunnel_bounding_box
-    old_block_id = 0
-  [../]
-  [./define_interface]
-    type = SideSetsBetweenSubdomains
-    master_block = 0
-    depends_on = wind_tunnel_bounding_box
-    new_boundary = interface
-    paired_block = 1
-  [../]
-  [./break_side_boundaries]
-    type = BreakBoundaryOnSubdomain
-    boundaries = 'left right'
-    depends_on = rename_solid_wall
-  [../]
 []
 
 [Problem]
@@ -132,20 +104,14 @@
 
 [Variables]
   [./rho]
-    block = wind_tunnel
   [../]
   [./momx]
-    block = wind_tunnel
   [../]
   [./momy]
-    block = wind_tunnel
   [../]
   [./rhoe]
-    block = wind_tunnel
   [../]
   [./temperature]
-    block = solid_wall
-    initial_condition = 1.0
   [../]
 []
 
@@ -283,56 +249,56 @@
   # # outflow
   [./inflow_mass]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
+    boundary = left
     variable = rho
     component = mass
     flux = inflow_bc
   [../]
   [./inflow_momx]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
+    boundary = left
     variable = momx
     component = x-momentum
     flux = inflow_bc
   [../]
   [./inflow_momy]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
+    boundary = left
     variable = momy
     component = y-momentum
     flux = inflow_bc
   [../]
   [./inflow_etot]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
+    boundary = left
     variable = rhoe
     component = total-energy
     flux = inflow_bc
   [../]
   [./outflow_mass]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
+    boundary = right
     variable = rho
     component = mass
     flux = outflow_bc
   [../]
   [./outflow_momx]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
+    boundary = right
     variable = momx
     component = x-momentum
     flux = outflow_bc
   [../]
   [./outflow_momy]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
+    boundary = right
     variable = momy
     component = y-momentum
     flux = outflow_bc
   [../]
   [./outflow_etot]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
+    boundary = right
     variable = rhoe
     component = total-energy
     flux = outflow_bc
@@ -340,14 +306,14 @@
   [./interface_mass]
     type = CNSFVBC
     variable = rho
-    boundary = interface
+    boundary = top
     component = mass
     flux = interface_bc
   [../]
   [./interface_etot]
     type = CNSFVBC
     variable = rhoe
-    boundary = interface
+    boundary = top
     component = total-energy
     flux = interface_bc
   [../]
@@ -368,14 +334,14 @@
   [./interface_momx]
     type = CNSFVBC
     variable = momx
-    boundary = interface
+    boundary = top
     component = x-momentum
     flux = interface_bc
   [../]
   [./interface_momy]
     type = CNSFVBC
     variable = momy
-    boundary = interface
+    boundary = top
     component = y-momentum
     flux = interface_bc
   [../]
@@ -398,7 +364,7 @@
 [Materials]
   [./cnsfv]
     type = CNSFVMaterial
-    block = '0 1'
+    block = 0
   [../]
 []
 
@@ -411,8 +377,9 @@
 []
 
 [Executioner]
-  num_steps = 1
+  # num_steps = 10
   type = Transient
+  num_steps = 10
   solve_type = LINEAR
   l_tol = 1e-4
   end_time = 0.01

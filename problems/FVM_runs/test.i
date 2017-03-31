@@ -90,7 +90,7 @@
     execute_on = linear
   [../]
   [./interface_bcuo]
-    type = CNSFVNoSlipBCUserObject
+    type = CNSFVSlipBCUserObject
     execute_on = linear
   [../]
   [./bottom_bcuo]
@@ -106,7 +106,7 @@
     execute_on = linear
   [../]
   [./riemann]
-    type = CNSFVHLLCViscousInternalSideFlux
+    type = CNSFVHLLCInternalSideFlux
     execute_on = linear
   [../]
   [./inflow_bc]
@@ -119,12 +119,12 @@
     execute_on = linear
   [../]
   [./interface_bc]
-    type = CNSFVHLLCViscousBoundaryFlux
+    type = CNSFVHLLCSlipBoundaryFlux
     execute_on = linear
     bc_uo = interface_bcuo
   [../]
   [./bottom_bc]
-    type = CNSFVHLLCViscousBoundaryFlux
+    type = CNSFVHLLCSlipBoundaryFlux
     execute_on = linear
     bc_uo = bottom_bcuo
   [../]
