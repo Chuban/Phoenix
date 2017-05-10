@@ -31,7 +31,7 @@ NSThermalFluxInterface::NSThermalFluxInterface(const InputParameters & parameter
 {
   if (!parameters.isParamValid("boundary"))
   {
-    mooseError2("In order to use the InterfaceDiffusion dgkernel, you must specify a boundary where it will live.");
+    mooseError("In order to use the InterfaceDiffusion dgkernel, you must specify a boundary where it will live.");
   }
 }
 

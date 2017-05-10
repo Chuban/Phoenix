@@ -9,12 +9,15 @@
 #include "Atmosphere.h"
 #include "HeatConductionDMI.h"
 #include "Steatite.h"
-#include "InterfaceDiffusion.h"
 #include "NSThermalMatchBC.h"
 #include "NSThermalFluxInterface.h"
 #include "CNSFVNoSlipBCUserObject.h"
 #include "CNSFVHLLCViscousBoundaryFlux.h"
 #include "CNSFVHLLCViscousInternalSideFlux.h"
+#include "CNSFVThermalFluxInterface.h"
+#include "CNSFVThermalSlipBCUserObject.h"
+// #include "CNSFVHLLCThermalSlipBoundaryFlux.h"
+#include "CNSFVTempAux.h"
 
 template <> InputParameters validParams<PhoenixApp>() {
   InputParameters params = validParams<MooseApp>();
@@ -55,11 +58,11 @@ void PhoenixApp::registerObjects(Factory &factory) {
 
   // Kernels
   registerNamedKernel(HeatConductionKernelDMI, "HeatConductionDMI");
-  registerKernel(InterfaceDiffusion);
   registerKernel(NSThermalMatchBC);
   registerKernel(NSThermalFluxInterface);
 
   // Auxkernels
+  registerAuxKernel(CNSFVTempAux);
 
   // Postprocessors
 
@@ -67,6 +70,13 @@ void PhoenixApp::registerObjects(Factory &factory) {
   registerUserObject(CNSFVNoSlipBCUserObject);
   registerUserObject(CNSFVHLLCViscousBoundaryFlux);
   registerUserObject(CNSFVHLLCViscousInternalSideFlux);
+  registerUserObject(CNSFVThermalSlipBCUserObject);
+  // registerUserObject(CNSFVHLLCThermalSlipBoundaryFlux);
+
+  // Boundary Conditions
+
+  // Interface kernels
+  registerInterfaceKernel(CNSFVThermalFluxInterface);
 }
 
 // External entry point for dynamic syntax association

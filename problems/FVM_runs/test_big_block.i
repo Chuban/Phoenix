@@ -23,12 +23,6 @@
   implicit = false
 []
 
-#[Mesh]
-#  type = FileMesh
-#  file = /home/moose-user/Projects/phoenix/meshes/big_block_tunnel.e
-#  dim = 2
-#[]
-
 [Mesh]
   type = GeneratedMesh
   dim = 2
@@ -53,12 +47,12 @@
     depends_on = wind_tunnel_bounding_box
     old_block_id = 0
   [../]
-  [./define_interface_1]
+  [./define_interface]
     type = SideSetsBetweenSubdomains
-    master_block = 1
+    master_block = 0
     depends_on = wind_tunnel_bounding_box
     new_boundary = interface
-    paired_block = 0
+    paired_block = 1
   [../]
   [./break_side_boundaries]
     type = BreakBoundaryOnSubdomain
@@ -93,9 +87,8 @@
     execute_on = linear
   [../]
   [./interface_bcuo]
-    type = CNSFVThermalSlipBCUserObject
+    type = CNSFVSlipBCUserObject
     execute_on = linear
-    temperature = solid_temperature
   [../]
   [./bottom_bcuo]
     type = CNSFVSlipBCUserObject
@@ -124,11 +117,11 @@
     type = CNSFVFreeOutflowBoundaryFlux
     execute_on = linear
   [../]
-  #[./interface_bc]
-  #  type = CNSFVHLLCSlipBoundaryFlux
-  #  execute_on = linear
-  #  bc_uo = interface_bcuo
-  #[../]
+  [./interface_bc]
+    type = CNSFVHLLCSlipBoundaryFlux
+    execute_on = linear
+    bc_uo = interface_bcuo
+  [../]
   [./bottom_bc]
     type = CNSFVHLLCSlipBoundaryFlux
     execute_on = linear
@@ -137,12 +130,6 @@
 []
 
 [Variables]
-  [./solid_temperature]
-    initial_condition = 1.
-    family = LAGRANGE
-    order = FIRST
-    block = solid_wall
-  [../]
   [./rho]
     block = wind_tunnel
   [../]
@@ -154,6 +141,10 @@
   [../]
   [./rhoe]
     block = wind_tunnel
+  [../]
+  [./temperature]
+    block = solid_wall
+    initial_condition = 1.0
   [../]
 []
 
@@ -169,8 +160,6 @@
   [../]
   [./vely]
     block = wind_tunnel
-  [../]
-  [./temperature]
   [../]
 []
 
@@ -234,10 +223,10 @@
     variable = rhoe
     block = wind_tunnel
   [../]
-  [./diff_temperature]
+  [./null_temperature]
     implicit = true
-    type = Diffusion
-    variable = solid_temperature
+    type = NullKernel
+    variable = temperature
     block = solid_wall
   [../]
 []
@@ -278,45 +267,37 @@
 []
 
 [InterfaceKernels]
-  [./interface_mass]
+  [./mass]
     type = CNSFVThermalFluxInterface
     variable = rho
-    neighbor_var = solid_temperature
-    boundary = interface
-    block = wind_tunnel
+    neighbor_var = temperature
     component = mass
-    flux = riemann
-    bc_uo = interface_bcuo
+    flux = bottom_bc
+    boundary = interface
   [../]
-  [./interface_momx]
+  [./momx]
     type = CNSFVThermalFluxInterface
     variable = momx
-    neighbor_var = solid_temperature
-    boundary = interface
-    block = wind_tunnel
+    neighbor_var = temperature
     component = x-momentum
-    flux = riemann
-    bc_uo = interface_bcuo
+    flux = bottom_bc
+    boundary = interface
   [../]
-  [./interface_momy]
+  [./momy]
     type = CNSFVThermalFluxInterface
     variable = momy
-    neighbor_var = solid_temperature
-    boundary = interface
-    block = wind_tunnel
+    neighbor_var = temperature
     component = y-momentum
-    flux = riemann
-    bc_uo = interface_bcuo
+    flux = bottom_bc
+    boundary = interface
   [../]
-  [./interface_etot]
+  [./etot]
     type = CNSFVThermalFluxInterface
     variable = rhoe
-    neighbor_var = solid_temperature
-    boundary = interface
-    block = wind_tunnel
+    neighbor_var = temperature
     component = total-energy
-    flux = riemann
-    bc_uo = interface_bcuo
+    flux = bottom_bc
+    boundary = interface
   [../]
 []
 
@@ -345,21 +326,12 @@
     numerator = momy
     block = wind_tunnel
   [../]
-  [./fluid_T]
-    type = CNSFVTempAux
-    variable = temperature
-    block = wind_tunnel
-  [../]
-  [./solid_T]
-    type = ParsedAux
-    variable = temperature
-    block = solid_wall
-    function = 'solid_temperature'
-    args = 'solid_temperature'
-  [../]
 []
 
 [BCs]
+  # # wall
+  # # inflow
+  # # outflow
   [./inflow_mass]
     type = CNSFVBC
     boundary = left_to_wind_tunnel
@@ -416,6 +388,20 @@
     component = total-energy
     flux = outflow_bc
   [../]
+  #[./interface_mass]
+  #  type = CNSFVBC
+  #  variable = rho
+  #  boundary = interface
+  #  component = mass
+  #  flux = interface_bc
+  #[../]
+  #[./interface_etot]
+  #  type = CNSFVBC
+  #  variable = rhoe
+  #  boundary = interface
+  #  component = total-energy
+  #  flux = interface_bc
+  #[../]
   [./bottom_mass]
     type = CNSFVBC
     variable = rho
@@ -430,6 +416,20 @@
     component = total-energy
     flux = bottom_bc
   [../]
+  #[./interface_momx]
+  #  type = CNSFVBC
+  #  variable = momx
+  #  boundary = interface
+  #  component = x-momentum
+  #  flux = interface_bc
+  #[../]
+  #[./interface_momy]
+  #  type = CNSFVBC
+  #  variable = momy
+  #  boundary = interface
+  #  component = y-momentum
+  #  flux = interface_bc
+  #[../]
   [./bottom_momy]
     type = CNSFVBC
     variable = momy
@@ -444,18 +444,6 @@
     component = x-momentum
     flux = bottom_bc
   [../]
-  [./wall_temp_left]
-    type = DirichletBC
-    variable = solid_temperature
-    boundary = left_to_solid_wall
-    value = 1.0
-  [../]
-  [./wall_temp_right]
-    type = DirichletBC
-    variable = solid_temperature
-    boundary = right_to_solid_wall
-    value = 2.0
-  [../]
 []
 
 [Materials]
@@ -466,7 +454,7 @@
   [./temp]
     type = Aluminum7075
     block = solid_wall
-    temperature = solid_temperature
+    temperature = temperature
   [../]
 []
 
@@ -480,14 +468,14 @@
 []
 
 [Executioner]
+  num_steps = 3
   type = Transient
-  num_steps = 2
   solve_type = LINEAR
   l_tol = 1e-4
   end_time = 0.01
   nl_abs_tol = 1e-12
   ss_check_tol = 1e-12
-  trans_ss_check = false
+  trans_ss_check = true
   [./TimeIntegrator]
     type = ExplicitTVDRK2
   [../]

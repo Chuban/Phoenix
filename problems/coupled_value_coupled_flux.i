@@ -35,12 +35,11 @@
 
 [Kernels]
   [./diff_u]
-    type = CoefDiffusion
+    type = Diffusion
     variable = u
-    coef = 4
   [../]
   [./diff_v]
-    type = CoefDiffusion
+    type = Diffusion
     variable = v
     coef = 2
   [../]
@@ -91,4 +90,3 @@
     type = Exodus
   [../]
 []
-
