@@ -3,7 +3,7 @@
 ###############################################################################
 #
 # Optional Environment variables
-# MOOSE_DIR        - Root directory of the MOOSE project 
+# MOOSE_DIR        - Root directory of the MOOSE project
 #
 ###############################################################################
 # Use the MOOSE submodule if it exists and MOOSE_DIR is not set
@@ -20,13 +20,15 @@ include $(FRAMEWORK_DIR)/build.mk
 include $(FRAMEWORK_DIR)/moose.mk
 
 ################################## MODULES ####################################
-ALL_MODULES := yes
+ALL_MODULES := no
+NAVIER_STOKES := yes
+HEAT_CONDUCTION := yes
 include $(MOOSE_DIR)/modules/modules.mk
 ###############################################################################
 
 # dep apps
 APPLICATION_DIR    := $(CURDIR)
-APPLICATION_NAME   := Phoenix
+APPLICATION_NAME   := phoenix
 BUILD_EXEC         := yes
 DEP_APPS           := $(shell $(FRAMEWORK_DIR)/scripts/find_dep_apps.py $(APPLICATION_NAME))
 include            $(FRAMEWORK_DIR)/app.mk
