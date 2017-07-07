@@ -1,32 +1,32 @@
 [Preconditioning]
   [./SMP]
+    # Why does this option hurt the solution speed?    
+    # solve_type = PJFNK
     type = SMP
-    solve_type = PJFNK
   [../]
 []
 
 [GlobalParams]
   order = CONSTANT
   family = MONOMIAL
-  rho = rho
+  rho = fluid_density
   rhou = momx
   rhov = momy
-  rhoe = rhoe
+  rhoe = energy
   fluid_properties = fp
   slope_reconstruction = rslope
   slope_limiting = lslope
-  boundary_list = 'bottom right_to_wind_tunnel interface left_to_wind_tunnel'
-  boundary_condition_user_object_list = 'bottom_bcuo outflow_bcuo interface_bcuo inflow_bcuo'
-  infinity_density = 1.
-  infinity_x_velocity = 0.1
-  infinity_pressure = 0.71428571428571428571
+  boundary_list = 'midplane outlet interface inlet slip_wall'
+  boundary_condition_user_object_list = 'slipwall_bcuo outflow_bcuo interface_bcuo inflow_bcuo slipwall_bcuo'
+  infinity_density = 1.17659149022
+  infinity_x_velocity = 1.0
+  infinity_pressure = 101325.
   implicit = false
 []
 
 [Mesh]
   type = FileMesh
-  file = /home/ENP/staff/achaill/Projects/phoenix/meshes/miniWAXTS.e
-  dim = 2
+  file = /home/ENP/staff/achaill/Projects/phoenix/meshes/WAXTS.e
 []
 
 [Problem]
@@ -37,10 +37,8 @@
 [Modules]
   [./FluidProperties]
     [./fp]
-      type = IdealGasFluidProperties
+      type = AirFluidProperties
       gamma = 1.4
-      R = 0.71428571428571428571
-      mu = 1e-5
     [../]
   [../]
 []
@@ -55,11 +53,15 @@
     execute_on = linear
   [../]
   [./interface_bcuo]
-    type = CNSFVSlipBCUserObject
+    type = CNSFVThermalResistiveBCUserObject
+    condition = slip
     execute_on = linear
+    temperature = solid_temperature
+    resistivity = 0.
+    thickness = 0.
   [../]
-  [./bottom_bcuo]
-    type = CNSFVSlipBCUserObject
+  [./slipwall_bcuo]
+    type = CNSFVNoSlipBCUserObject
     execute_on = linear
   [../]
   [./rslope]
@@ -90,21 +92,21 @@
     execute_on = linear
     bc_uo = interface_bcuo
   [../]
-  [./bottom_bc]
+  [./slipwall_bc]
     type = CNSFVHLLCSlipBoundaryFlux
     execute_on = linear
-    bc_uo = bottom_bcuo
+    bc_uo = slipwall_bcuo
   [../]
 []
 
 [Variables]
   [./solid_temperature]
-    initial_condition = 1.
+    initial_condition = 310.
     family = LAGRANGE
     order = FIRST
-    block = solid_wall
+    block = 'holder coupon solid_wall backing heat_flux_plate'
   [../]
-  [./rho]
+  [./fluid_density]
     block = wind_tunnel
   [../]
   [./momx]
@@ -113,54 +115,60 @@
   [./momy]
     block = wind_tunnel
   [../]
-  [./rhoe]
+  [./energy]
     block = wind_tunnel
   [../]
 []
 
 [AuxVariables]
-  [./mach]
+  [./machNumber]
     block = wind_tunnel
   [../]
-  [./pres]
+  [./fluid_pressure]
     block = wind_tunnel
   [../]
-  [./velx]
+  [./velocityx]
     block = wind_tunnel
   [../]
-  [./vely]
+  [./velocityy]
     block = wind_tunnel
+  [../]
+  [./fluid_temperature]
+    block = wind_tunnel
+  [../]
+  [./global_temperature]
   [../]
 []
 
 [ICs]
-  [./rho_ic]
-    variable = rho
+  [./density_ic]
+    variable = fluid_density
     type = ConstantIC
-    value = 1.
+    value = 1.17659149022
   [../]
   [./rhou_ic]
+    # value = 1.17659149022
     variable = momx
     type = ConstantIC
-    value = 0.1
+    value = 0.
   [../]
   [./rhov_ic]
     variable = momy
     type = ConstantIC
     value = 0.
   [../]
-  [./rhoe_ic]
-    variable = rhoe
+  [./energy_ic]
+    variable = energy
     type = ConstantIC
-    value = 1.79071428571
+    value = 253313.088296
   [../]
   [./mach_ic]
     type = CNSFVMachIC
-    variable = mach
+    variable = machNumber
   [../]
-  [./pres_ic]
+  [./pressure_ic]
     type = CNSFVPressureIC
-    variable = pres
+    variable = fluid_pressure
   [../]
 []
 
@@ -169,10 +177,10 @@
   # ### Time derivative of momentum in x-direction
   # ### Time derivative of momentum in y-direction
   # ### Time derivative of total energy
-  [./time_rho]
+  [./time_fluid_density]
     implicit = true
     type = TimeDerivative
-    variable = rho
+    variable = fluid_density
     block = wind_tunnel
   [../]
   [./time_momx]
@@ -187,17 +195,24 @@
     variable = momy
     block = wind_tunnel
   [../]
-  [./time_rhoe]
+  [./time_energy]
     implicit = true
     type = TimeDerivative
-    variable = rhoe
+    variable = energy
     block = wind_tunnel
   [../]
-  [./diff_temperature]
+  [./time_temperature]
     implicit = true
-    type = Diffusion
+    type = SpecificHeatConductionTimeDerivative
     variable = solid_temperature
-    block = solid_wall
+    block = 'holder coupon solid_wall backing heat_flux_plate'
+  [../]
+  [./diff_temperature]
+    # thermal_conductivity = thermal_conductivity
+    implicit = true
+    type = HeatConductionDMI
+    variable = solid_temperature
+    block = 'holder coupon solid_wall backing heat_flux_plate'
   [../]
 []
 
@@ -208,7 +223,7 @@
   # ### Total energy conservation eqn
   [./mass]
     type = CNSFVKernel
-    variable = rho
+    variable = fluid_density
     component = mass
     flux = riemann
     block = wind_tunnel
@@ -229,122 +244,213 @@
   [../]
   [./etot]
     type = CNSFVKernel
-    variable = rhoe
+    variable = energy
     component = total-energy
     flux = riemann
     block = wind_tunnel
   [../]
 []
 
+[InterfaceKernels]
+  [./massInterface]
+    neighbor_var = solid_temperature
+    component = mass
+    flux = riemann
+    variable = fluid_density
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+  [./momxInterface]
+    neighbor_var = solid_temperature
+    component = x-momentum
+    flux = riemann
+    variable = momx
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+  [./momyInterface]
+    neighbor_var = solid_temperature
+    component = y-momentum
+    flux = riemann
+    variable = momy
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+  [./energyInterface]
+    neighbor_var = solid_temperature
+    component = total-energy
+    flux = riemann
+    variable = energy
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+[]
+
 [AuxKernels]
+  # This variable is only used for material property calculations.
   [./mach]
     type = CNSFVMachAux
-    variable = mach
+    variable = machNumber
     block = wind_tunnel
   [../]
   [./pres]
     type = CNSFVPressureAux
-    variable = pres
+    variable = fluid_pressure
     block = wind_tunnel
+  [../]
+  [./velX]
+    type = QuotientAux
+    numerator = momx
+    denominator = fluid_density
+    variable = velocityx
+    block = wind_tunnel
+  [../]
+  [./velY]
+    type = QuotientAux
+    numerator = momy
+    denominator = fluid_density
+    variable = velocityy
+    block = wind_tunnel
+  [../]
+  [./fluidTemp]
+    type = CNSFVTempAux
+    variable = fluid_temperature
+    block = wind_tunnel
+  [../]
+  [./globalTemp]
+    type = ParsedAux
+    args = 'solid_temperature fluid_temperature'
+    function = '(solid_temperature + fluid_temperature)'
+    variable = global_temperature
   [../]
 []
 
 [BCs]
   [./inflow_mass]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
-    variable = rho
+    boundary = inlet
+    variable = fluid_density
     component = mass
     flux = inflow_bc
   [../]
   [./inflow_momx]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
+    boundary = inlet
     variable = momx
     component = x-momentum
     flux = inflow_bc
   [../]
   [./inflow_momy]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
+    boundary = inlet
     variable = momy
     component = y-momentum
     flux = inflow_bc
   [../]
   [./inflow_etot]
     type = CNSFVBC
-    boundary = left_to_wind_tunnel
-    variable = rhoe
+    boundary = inlet
+    variable = energy
     component = total-energy
     flux = inflow_bc
   [../]
   [./outflow_mass]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
-    variable = rho
+    boundary = outlet
+    variable = fluid_density
     component = mass
     flux = outflow_bc
   [../]
   [./outflow_momx]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
+    boundary = outlet
     variable = momx
     component = x-momentum
     flux = outflow_bc
   [../]
   [./outflow_momy]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
+    boundary = outlet
     variable = momy
     component = y-momentum
     flux = outflow_bc
   [../]
   [./outflow_etot]
     type = CNSFVBC
-    boundary = right_to_wind_tunnel
-    variable = rhoe
+    boundary = outlet
+    variable = energy
     component = total-energy
     flux = outflow_bc
   [../]
   [./bottom_mass]
     type = CNSFVBC
-    variable = rho
-    boundary = bottom
+    variable = fluid_density
+    boundary = midplane
     component = mass
-    flux = bottom_bc
+    flux = slipwall_bc
   [../]
   [./bottom_etot]
     type = CNSFVBC
-    variable = rhoe
-    boundary = bottom
+    variable = energy
+    boundary = midplane
     component = total-energy
-    flux = bottom_bc
+    flux = slipwall_bc
   [../]
   [./bottom_momy]
     type = CNSFVBC
     variable = momy
-    boundary = bottom
+    boundary = midplane
     component = y-momentum
-    flux = bottom_bc
+    flux = slipwall_bc
   [../]
   [./bottom_momx]
     type = CNSFVBC
     variable = momx
-    boundary = bottom
+    boundary = midplane
     component = x-momentum
-    flux = bottom_bc
+    flux = slipwall_bc
   [../]
-  [./wall_temp_left]
+  [./slipwall_mass]
+    type = CNSFVBC
+    variable = fluid_density
+    boundary = slip_wall
+    component = mass
+    flux = slipwall_bc
+  [../]
+  [./slipwall_etot]
+    type = CNSFVBC
+    variable = energy
+    boundary = slip_wall
+    component = total-energy
+    flux = slipwall_bc
+  [../]
+  [./slipwall_momy]
+    type = CNSFVBC
+    variable = momy
+    boundary = slip_wall
+    component = y-momentum
+    flux = slipwall_bc
+  [../]
+  [./slipwall_momx]
+    type = CNSFVBC
+    variable = momx
+    boundary = slip_wall
+    component = x-momentum
+    flux = slipwall_bc
+  [../]
+  [./ambient_temp]
     type = DirichletBC
     variable = solid_temperature
-    boundary = left_to_solid_wall
-    value = 1.0
-  [../]
-  [./wall_temp_right]
-    type = DirichletBC
-    variable = solid_temperature
-    boundary = right_to_solid_wall
-    value = 2.0
+    boundary = exterior
+    value = 310.
   [../]
 []
 
@@ -353,8 +459,15 @@
     type = CNSFVMaterial
     block = wind_tunnel
   [../]
-  [./temp]
-    type = GenericConstantMaterial
+  [./Al2024]
+    type = Aluminum2024
+    block = 'coupon solid_wall backing'
+    temperature = solid_temperature
+  [../]
+  [./Steatite]
+    type = Steatite
+    block = 'heat_flux_plate holder'
+    temperature = solid_temperature
   [../]
 []
 
@@ -368,11 +481,11 @@
 []
 
 [Executioner]
+  num_steps = 10
   type = Transient
-  num_steps = 2
+  end_time = 1.0
   solve_type = LINEAR
   l_tol = 1e-4
-  end_time = 0.01
   nl_abs_tol = 1e-12
   ss_check_tol = 1e-12
   trans_ss_check = false
@@ -391,28 +504,15 @@
     type = Exodus
     execute_on = 'initial timestep_end final'
     elemental_as_nodal = true
-    interval = 1
+    output_material_properties = false
+    interval = 25
   [../]
   [./CONSOLE]
     type = Console
-    output_linear = true
+    output_linear = false
     output_nonlinear = true
     execute_postprocessors_on = none
     interval = 1
-  [../]
-[]
-
-[InterfaceKernels]
-  [./massInterface]
-    neighbor_var = solid_temperature
-    rhow = 0
-    component = mass
-    flux = riemann
-    variable = rho
-    boundary = interface
-    type = CNSFVThermalFluxInterface
-    block = wind_tunnel
-    bc_uo = interface_bcuo
   [../]
 []
 

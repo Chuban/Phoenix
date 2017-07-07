@@ -6,18 +6,17 @@
 
 #include "Aluminum2024.h"
 #include "Aluminum7075.h"
-#include "Atmosphere.h"
-#include "HeatConductionDMI.h"
 #include "Steatite.h"
-#include "NSThermalMatchBC.h"
-#include "NSThermalFluxInterface.h"
+
+#include "HeatConductionDMI.h"
+
 #include "CNSFVNoSlipBCUserObject.h"
-#include "CNSFVHLLCViscousBoundaryFlux.h"
-#include "CNSFVHLLCViscousInternalSideFlux.h"
+// #include "CNSFVHLLCViscousBoundaryFlux.h"
+// #include "CNSFVHLLCViscousInternalSideFlux.h"
 #include "CNSFVThermalFluxInterface.h"
-#include "CNSFVThermalSlipBCUserObject.h"
-// #include "CNSFVHLLCThermalSlipBoundaryFlux.h"
+#include "CNSFVThermalResistiveBCUserObject.h"
 #include "CNSFVTempAux.h"
+#include "AirFluidProperties.h"
 
 template <> InputParameters validParams<PhoenixApp>() {
   InputParameters params = validParams<MooseApp>();
@@ -50,16 +49,14 @@ extern "C" void PhoenixApp__registerObjects(Factory &factory) {
   PhoenixApp::registerObjects(factory);
 }
 void PhoenixApp::registerObjects(Factory &factory) {
+  
   // Materials
   registerMaterial(Aluminum2024);
   registerMaterial(Aluminum7075);
   registerMaterial(Steatite);
-  registerMaterial(Atmosphere);
 
   // Kernels
   registerNamedKernel(HeatConductionKernelDMI, "HeatConductionDMI");
-  registerKernel(NSThermalMatchBC);
-  registerKernel(NSThermalFluxInterface);
 
   // Auxkernels
   registerAuxKernel(CNSFVTempAux);
@@ -68,14 +65,13 @@ void PhoenixApp::registerObjects(Factory &factory) {
 
   // User Objects
   registerUserObject(CNSFVNoSlipBCUserObject);
-  registerUserObject(CNSFVHLLCViscousBoundaryFlux);
-  registerUserObject(CNSFVHLLCViscousInternalSideFlux);
-  registerUserObject(CNSFVThermalSlipBCUserObject);
-  // registerUserObject(CNSFVHLLCThermalSlipBoundaryFlux);
+  // registerUserObject(CNSFVHLLCViscousBoundaryFlux);
+  // registerUserObject(CNSFVHLLCViscousInternalSideFlux);
+  // registerUserObject(CNSFVThermalBCUserObject);
+  registerUserObject(CNSFVThermalResistiveBCUserObject);
+  registerUserObject(AirFluidProperties);
 
-  // Boundary Conditions
-
-  // Interface kernels
+  // Interface Kernels
   registerInterfaceKernel(CNSFVThermalFluxInterface);
 }
 

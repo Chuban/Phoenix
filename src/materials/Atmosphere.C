@@ -7,12 +7,11 @@ template <> InputParameters validParams<Atmosphere>() {
 }
 
 Atmosphere::Atmosphere(const InputParameters &parameters)
-    : ThermalMaterial(parameters), _mu(declareProperty<Real>("mu")),
-      _d_mu_dT(declarePropertyDerivative<Real>(
-          "mu", getVar("temperature", 0)->name())),
-      _gamma(declareProperty<Real>("gamma")),
-      _d_gamma_dT(declarePropertyDerivative<Real>(
-          "gamma", getVar("temperature", 0)->name())) {}
+    : ThermalMaterial(parameters),
+      _mu(declareProperty<Real>("mu")),
+      _d_mu_dT(declarePropertyDerivative<Real>("mu", getVar("temperature", 0)->name()))
+{
+}
 
 void Atmosphere::computeQpProperties() {
 
@@ -96,7 +95,4 @@ void Atmosphere::computeQpProperties() {
     _mu[_qp] = 7.14455e-5;
     _d_mu_dT[_qp] = 0.;
   }
-
-  _gamma[_qp] = 1.4;
-  _d_gamma_dT[_qp] = 0.;
 }

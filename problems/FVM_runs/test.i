@@ -1,142 +1,492 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+[Preconditioning]
+  [./SMP]
+    type = SMP
+    # Why does this option hurt convergence?    
+    #solve_type = PJFNK
+  [../]
+[]
 
-#include "CNSFVMaterial.h"
-#include "MooseMesh.h"
+[GlobalParams]
+  order = CONSTANT
+  family = MONOMIAL
+  rho = rho
+  rhou = momx
+  rhov = momy
+  rhoe = rhoe
+  fluid_properties = fp
+  slope_reconstruction = rslope
+  slope_limiting = lslope
+  boundary_list = 'bottom right_to_wind_tunnel interface left_to_wind_tunnel'
+  boundary_condition_user_object_list = 'bottom_bcuo outflow_bcuo interface_bcuo inflow_bcuo'
+  infinity_density = 1.
+  infinity_x_velocity = 0.1
+  infinity_pressure = 0.71428571428571428571
+  implicit = false
+[]
 
-// libMesh includes
-#include "libmesh/quadrature.h"
+[Mesh]
+  type = FileMesh
+  file = /home/ENP/staff/achaill/Projects/phoenix/meshes/miniWAXTS.e
+  dim = 2
+[]
 
-template <>
-InputParameters
-validParams<CNSFVMaterial>()
-{
-  InputParameters params = validParams<Material>();
+[Problem]
+  type = FEProblem
+  kernel_coverage_check = false
+[]
 
-  params.addClassDescription("A material kernel for the CNS equations.");
+[Modules]
+  [./FluidProperties]
+    [./fp]
+      type = IdealGasFluidProperties
+      gamma = 1.4
+      R = 0.71428571428571428571
+      mu = 1e-5
+    [../]
+  [../]
+[]
 
-  params.addRequiredCoupledVar("rho", "Conserved variable: rho");
+[UserObjects]
+  [./inflow_bcuo]
+    type = CNSFVRiemannInvariantBCUserObject
+    execute_on = linear
+  [../]
+  [./outflow_bcuo]
+    type = CNSFVFreeOutflowBCUserObject
+    execute_on = linear
+  [../]
+  [./interface_bcuo]
+    type = CNSFVThermalSlipBCUserObject
+    execute_on = linear
+    temperature = solid_temperature
+  [../]
+  [./bottom_bcuo]
+    type = CNSFVSlipBCUserObject
+    execute_on = linear
+  [../]
+  [./rslope]
+    type = CNSFVLeastSquaresSlopeReconstruction
+    execute_on = linear
+    block = wind_tunnel
+  [../]
+  [./lslope]
+    type = CNSFVNoSlopeLimiting
+    execute_on = linear
+    block = wind_tunnel
+  [../]
+  [./riemann]
+    type = CNSFVHLLCInternalSideFlux
+    execute_on = linear
+  [../]
+  [./inflow_bc]
+    type = CNSFVRiemannInvariantBoundaryFlux
+    bc_uo = inflow_bcuo
+    execute_on = linear
+  [../]
+  [./outflow_bc]
+    type = CNSFVFreeOutflowBoundaryFlux
+    execute_on = linear
+  [../]
+  [./interface_bc]
+    type = CNSFVHLLCSlipBoundaryFlux
+    execute_on = linear
+    bc_uo = interface_bcuo
+  [../]
+  [./bottom_bc]
+    type = CNSFVHLLCSlipBoundaryFlux
+    execute_on = linear
+    bc_uo = bottom_bcuo
+  [../]
+[]
 
-  params.addRequiredCoupledVar("rhou", "Conserved variable: rhou");
+[Variables]
+  [./solid_temperature]
+    initial_condition = 1.
+    family = LAGRANGE
+    order = FIRST
+    block = solid_wall
+  [../]
+  [./rho]
+    block = wind_tunnel
+  [../]
+  [./momx]
+    block = wind_tunnel
+  [../]
+  [./momy]
+    block = wind_tunnel
+  [../]
+  [./rhoe]
+    block = wind_tunnel
+  [../]
+[]
 
-  params.addCoupledVar("rhov", "Conserved variable: rhov");
+[AuxVariables]
+  [./mach]
+    block = wind_tunnel
+  [../]
+  [./pres]
+    block = wind_tunnel
+  [../]
+  [./velx]
+    block = wind_tunnel
+  [../]
+  [./vely]
+    block = wind_tunnel
+  [../]
+  [./fluid_temperature]
+    block = wind_tunnel
+  [../]
+  [./global_temperature]
+    initial_condition = 300.
+  [../]
+[]
 
-  params.addCoupledVar("rhow", "Conserved variable: rhow");
+[ICs]
+  [./rho_ic]
+    variable = rho
+    type = ConstantIC
+    value = 1.
+  [../]
+  [./rhou_ic]
+    variable = momx
+    type = ConstantIC
+    value = 0.1
+  [../]
+  [./rhov_ic]
+    variable = momy
+    type = ConstantIC
+    value = 0.
+  [../]
+  [./rhoe_ic]
+    variable = rhoe
+    type = ConstantIC
+    value = 1.79071428571
+  [../]
+  [./mach_ic]
+    type = CNSFVMachIC
+    variable = mach
+  [../]
+  [./pres_ic]
+    type = CNSFVPressureIC
+    variable = pres
+  [../]
+[]
 
-  params.addRequiredCoupledVar("rhoe", "Conserved variable: rhoe");
+[Kernels]
+  # ### Time derivative of mass
+  # ### Time derivative of momentum in x-direction
+  # ### Time derivative of momentum in y-direction
+  # ### Time derivative of total energy
+  [./time_rho]
+    implicit = true
+    type = TimeDerivative
+    variable = rho
+    block = wind_tunnel
+  [../]
+  [./time_momx]
+    implicit = true
+    type = TimeDerivative
+    variable = momx
+    block = wind_tunnel
+  [../]
+  [./time_momy]
+    implicit = true
+    type = TimeDerivative
+    variable = momy
+    block = wind_tunnel
+  [../]
+  [./time_rhoe]
+    implicit = true
+    type = TimeDerivative
+    variable = rhoe
+    block = wind_tunnel
+  [../]
+  [./time_temperature]
+    implicit = true
+    type = TimeDerivative
+    variable = solid_temperature
+    block = solid_wall
+  [../]
+  [./diff_temperature]
+    implicit = true
+    type = Diffusion
+    variable = solid_temperature
+    block = solid_wall
+  [../]
+[]
 
-  params.addRequiredParam<UserObjectName>("slope_limiting", "Name for slope limiting user object");
+[DGKernels]
+  # ### Mass conservation eqn
+  # ### Momentum balance eqn in x-direction
+  # ### Momentum balance eqn in y-direction
+  # ### Total energy conservation eqn
+  [./mass]
+    type = CNSFVKernel
+    variable = rho
+    component = mass
+    flux = riemann
+    block = wind_tunnel
+  [../]
+  [./momx]
+    type = CNSFVKernel
+    variable = momx
+    component = x-momentum
+    flux = riemann
+    block = wind_tunnel
+  [../]
+  [./momy]
+    type = CNSFVKernel
+    variable = momy
+    component = y-momentum
+    flux = riemann
+    block = wind_tunnel
+  [../]
+  [./etot]
+    type = CNSFVKernel
+    variable = rhoe
+    component = total-energy
+    flux = riemann
+    block = wind_tunnel
+  [../]
+[]
 
-  params.addRequiredParam<UserObjectName>("fluid_properties",
-                                          "Name for fluid properties user object");
+[InterfaceKernels]
+  [./massInterface]
+    neighbor_var = solid_temperature
+    component = mass
+    flux = riemann
+    variable = rho
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+  [./momxInterface]
+    neighbor_var = solid_temperature
+    component = x-momentum
+    flux = riemann
+    variable = momx
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+  [./momyInterface]
+    neighbor_var = solid_temperature
+    component = y-momentum
+    flux = riemann
+    variable = momy
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+  [./rhoeInterface]
+    neighbor_var = solid_temperature
+    component = total-energy
+    flux = riemann
+    variable = rhoe
+    boundary = interface
+    type = CNSFVThermalFluxInterface
+    bc_uo = interface_bcuo
+    block = wind_tunnel
+  [../]
+[]
 
-  return params;
-}
+[AuxKernels]
+  [./mach]
+    type = CNSFVMachAux
+    variable = mach
+    block = wind_tunnel
+  [../]
+  [./pres]
+    type = CNSFVPressureAux
+    variable = pres
+    block = wind_tunnel
+  [../]
+  [./velX]
+    type = QuotientAux
+    numerator = momx
+    denominator = rho
+    variable = velx
+  [../]
+  [./velY]
+    type = QuotientAux
+    numerator = momy
+    denominator = rho
+    variable = vely
+  [../]
+  [./fluidTemp]
+    type = CNSFVTempAux
+    variable = fluid_temperature
+    block = wind_tunnel
+  [../]
+  # This variable is only used for material property calculations.
+  [./globalTemp]
+    type = ParsedAux
+    args = 'solid_temperature fluid_temperature'
+    function = '300 * (solid_temperature + fluid_temperature)'
+    variable = global_temperature
+  [../]
+[]
 
-CNSFVMaterial::CNSFVMaterial(const InputParameters & parameters)
-  : Material(parameters),
-    _rhoc(coupledValue("rho")),
-    _rhouc(coupledValue("rhou")),
-    _rhovc(isCoupled("rhov") ? coupledValue("rhov") : _zero),
-    _rhowc(isCoupled("rhow") ? coupledValue("rhow") : _zero),
-    _rhoec(coupledValue("rhoe")),
-    _lslope(getUserObject<SlopeLimitingBase>("slope_limiting")),
-    _fp(getUserObject<SinglePhaseFluidProperties>("fluid_properties")),
-    _rho(declareProperty<Real>("rho")),
-    _rhou(declareProperty<Real>("rhou")),
-    _rhov(declareProperty<Real>("rhov")),
-    _rhow(declareProperty<Real>("rhow")),
-    _rhoe(declareProperty<Real>("rhoe")),
-    _vmag(declareProperty<Real>("velocity_magnitude")),
-    _pres(declareProperty<Real>("pressure")),
-    _temp(declareProperty<Real>("temperature")),
-    _enth(declareProperty<Real>("enthalpy")),
-    _csou(declareProperty<Real>("speed_of_sound")),
-    _mach(declareProperty<Real>("mach_number")),
-    _uadv(declareProperty<Real>("vel_x")),
-    _vadv(declareProperty<Real>("vel_y")),
-    _wadv(declareProperty<Real>("vel_z")),
-    _gamma(declareProperty<Real>("gamma"))
-{
-}
+[BCs]
+  [./inflow_mass]
+    type = CNSFVBC
+    boundary = left_to_wind_tunnel
+    variable = rho
+    component = mass
+    flux = inflow_bc
+  [../]
+  [./inflow_momx]
+    type = CNSFVBC
+    boundary = left_to_wind_tunnel
+    variable = momx
+    component = x-momentum
+    flux = inflow_bc
+  [../]
+  [./inflow_momy]
+    type = CNSFVBC
+    boundary = left_to_wind_tunnel
+    variable = momy
+    component = y-momentum
+    flux = inflow_bc
+  [../]
+  [./inflow_etot]
+    type = CNSFVBC
+    boundary = left_to_wind_tunnel
+    variable = rhoe
+    component = total-energy
+    flux = inflow_bc
+  [../]
+  [./outflow_mass]
+    type = CNSFVBC
+    boundary = right_to_wind_tunnel
+    variable = rho
+    component = mass
+    flux = outflow_bc
+  [../]
+  [./outflow_momx]
+    type = CNSFVBC
+    boundary = right_to_wind_tunnel
+    variable = momx
+    component = x-momentum
+    flux = outflow_bc
+  [../]
+  [./outflow_momy]
+    type = CNSFVBC
+    boundary = right_to_wind_tunnel
+    variable = momy
+    component = y-momentum
+    flux = outflow_bc
+  [../]
+  [./outflow_etot]
+    type = CNSFVBC
+    boundary = right_to_wind_tunnel
+    variable = rhoe
+    component = total-energy
+    flux = outflow_bc
+  [../]
+  [./bottom_mass]
+    type = CNSFVBC
+    variable = rho
+    boundary = bottom
+    component = mass
+    flux = bottom_bc
+  [../]
+  [./bottom_etot]
+    type = CNSFVBC
+    variable = rhoe
+    boundary = bottom
+    component = total-energy
+    flux = bottom_bc
+  [../]
+  [./bottom_momy]
+    type = CNSFVBC
+    variable = momy
+    boundary = bottom
+    component = y-momentum
+    flux = bottom_bc
+  [../]
+  [./bottom_momx]
+    type = CNSFVBC
+    variable = momx
+    boundary = bottom
+    component = x-momentum
+    flux = bottom_bc
+  [../]
+  [./wall_temp_left]
+    type = DirichletBC
+    variable = solid_temperature
+    boundary = left_to_solid_wall
+    value = 1.0
+  [../]
+  [./wall_temp_right]
+    type = DirichletBC
+    variable = solid_temperature
+    boundary = right_to_solid_wall
+    value = 1.1
+  [../]
+[]
 
-CNSFVMaterial::~CNSFVMaterial() {}
+[Materials]
+  [./cnsfv]
+    type = CNSFVMaterial
+    block = wind_tunnel
+  [../]
+  [./Al2024]
+    type = Aluminum2024
+    block = solid_wall
+    temperature = global_temperature
+  [../]
+  [./Air]
+    type = Atmosphere
+    block = wind_tunnel
+    temperature = global_temperature
+  [../]
+[]
 
-void
-CNSFVMaterial::computeQpProperties()
-{
-  /// initialize the conserved variables: rho, rhou, rhov, rhow, rhoe
-  _rho[_qp] = _rhoc[_qp];
-  _rhou[_qp] = _rhouc[_qp];
-  _rhov[_qp] = _rhovc[_qp];
-  _rhow[_qp] = _rhowc[_qp];
-  _rhoe[_qp] = _rhoec[_qp];
+[Postprocessors]
+  [./dt]
+    type = CNSFVTimeStepLimit
+    execute_on = 'initial timestep_end'
+    cfl = 0.1
+    block = wind_tunnel
+  [../]
+[]
 
-  /// calculate the primitive variables: pres, uadv, vadv, wadv, temp
-  _uadv[_qp] = _rhou[_qp] / _rho[_qp];
-  _vadv[_qp] = _rhov[_qp] / _rho[_qp];
-  _wadv[_qp] = _rhow[_qp] / _rho[_qp];
+[Executioner]
+  type = Transient
+  num_steps = 100
+  solve_type = LINEAR
+  l_tol = 1e-4
+  end_time = 0.01
+  nl_abs_tol = 1e-12
+  ss_check_tol = 1e-12
+  trans_ss_check = false
+  [./TimeIntegrator]
+    type = ExplicitTVDRK2
+  [../]
+  [./TimeStepper]
+    type = PostprocessorDT
+    postprocessor = dt
+  [../]
+[]
 
-  Real vdov = _uadv[_qp] * _uadv[_qp] + _vadv[_qp] * _vadv[_qp] + _wadv[_qp] * _wadv[_qp];
+[Outputs]
+  print_perf_log = true
+  [./Exodus]
+    type = Exodus
+    execute_on = 'initial timestep_end final'
+    elemental_as_nodal = true
+    interval = 1
+  [../]
+  [./CONSOLE]
+    type = Console
+    output_linear = true
+    output_nonlinear = true
+    execute_postprocessors_on = none
+    interval = 1
+  [../]
+[]
 
-  Real v = 1. / _rho[_qp];
-  Real e = _rhoe[_qp] / _rho[_qp] - 0.5 * vdov;
-
-  _pres[_qp] = _fp.pressure(v, e);
-  _temp[_qp] = _fp.temperature(v, e);
-  _gamma[_qp] = _fp.gamma(v, e);
-
-  /// interpolate variable values at face center
-  if (_bnd)
-  {
-    /// reconstruct the slopes of primitive variables
-
-    unsigned int nvars = 5;
-    std::vector<RealGradient> ugrad(nvars, RealGradient(0., 0., 0.));
-    ugrad = _lslope.getElementSlope(_current_elem->id());
-
-    /// get the directional vector from cell center to face center
-
-    RealGradient dvec = _q_point[_qp] - _current_elem->centroid();
-
-    /// calculate the conserved variables at face center
-
-    _pres[_qp] += ugrad[0] * dvec;
-    _uadv[_qp] += ugrad[1] * dvec;
-    _vadv[_qp] += ugrad[2] * dvec;
-    _wadv[_qp] += ugrad[3] * dvec;
-    _temp[_qp] += ugrad[4] * dvec;
-
-    _rho[_qp] = _fp.rho(_pres[_qp], _temp[_qp]);
-
-    _rhou[_qp] = _rho[_qp] * _uadv[_qp];
-
-    _rhov[_qp] = _rho[_qp] * _vadv[_qp];
-
-    _rhow[_qp] = _rho[_qp] * _wadv[_qp];
-
-    _rhoe[_qp] = _rho[_qp] * _fp.e(_pres[_qp], _rho[_qp]) +
-                 _rho[_qp] * 0.5 *
-                     (_uadv[_qp] * _uadv[_qp] + _vadv[_qp] * _vadv[_qp] + _wadv[_qp] * _wadv[_qp]);
-
-    /// clear the temporary vectors
-
-    ugrad.clear();
-  }
-
-  /// calculations only for elemental output
-  else if (!_bnd)
-  {
-    _vmag[_qp] = std::sqrt(vdov);
-
-    _csou[_qp] = _fp.c(v, e);
-
-    _enth[_qp] = (_rhoe[_qp] + _pres[_qp]) / _rho[_qp];
-
-    _mach[_qp] = std::sqrt(vdov) / _csou[_qp];
-  }
-}

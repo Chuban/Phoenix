@@ -4,12 +4,10 @@ template <> InputParameters validParams<CNSFVThermalSlipBCUserObject>()
 {
   InputParameters params = validParams<BCUserObject>();
 
-  params.addClassDescription("A user object that computes the ghost cell values based on the slip "
-                             "wall boundary condition.");
+  params.addClassDescription("A user object that computes the ghost cell values based on the slip boundary condition.");
 
   params.addRequiredCoupledVar("temperature", "The temperature of the interface.");
-  params.addRequiredParam<UserObjectName>("fluid_properties",
-                                          "Name for fluid properties user object");
+  params.addRequiredParam<UserObjectName>("fluid_properties", "Name for fluid properties user object");
 
   return params;
 }
@@ -65,10 +63,13 @@ CNSFVThermalSlipBCUserObject::getGhostCellValue(unsigned int iside,
   Real mdotn = rhou1 * nx + rhov1 * ny + rhow1 * nz;
 
   urigh[0] = rhoScl * (rho1);
+  rhoInv = 1. / urigh[0];
   urigh[1] = rhoScl * (rhou1 - 2. * mdotn * nx);
   urigh[2] = rhoScl * (rhov1 - 2. * mdotn * ny);
   urigh[3] = rhoScl * (rhow1 - 2. * mdotn * nz);
-  urigh[4] = rhoScl * (kinEng + intEng * avgTemp / T1);
+  urigh[4] = 0.5 * (urigh[1] * urigh[1] +
+                    urigh[2] * urigh[2] +
+                    urigh[3] * urigh[3]) * rhoInv + urigh[0] * _fp.cv(0., 0.) * avgTemp;
 
   return urigh;
 }

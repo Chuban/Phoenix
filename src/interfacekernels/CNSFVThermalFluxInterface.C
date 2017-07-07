@@ -2,6 +2,8 @@
 #include "MooseVariable.h"
 #include "CNSFVThermalFluxInterface.h"
 
+#include "libmesh/quadrature.h"
+
 template<>
 InputParameters validParams<CNSFVThermalFluxInterface>()
 {
@@ -20,6 +22,9 @@ InputParameters validParams<CNSFVThermalFluxInterface>()
   params.addRequiredParam<UserObjectName>("bc_uo", "The boundary user object to use");
   params.addRequiredParam<UserObjectName>("flux", "The name of internal side flux object to use");
   params.addRequiredParam<UserObjectName>("slope_limiting", "The name of the slope limiter to use");
+
+  params.addRequiredParam<UserObjectName>("fluid_properties", "Name for fluid properties user object");
+
   return params;
 }
 
@@ -36,14 +41,16 @@ CNSFVThermalFluxInterface::CNSFVThermalFluxInterface(const InputParameters & par
     _rhov1(getMaterialProperty<Real>("rhov")),
     _rhow1(getMaterialProperty<Real>("rhow")),
     _rhoe1(getMaterialProperty<Real>("rhoe")),
-    _bc_uo(getUserObject<CNSFVThermalSlipBCUserObject>("bc_uo")),
+    _k_neighbor(getNeighborMaterialProperty<Real>("thermal_conductivity")),
+    _bc_uo(getUserObject<CNSFVThermalBCUserObject>("bc_uo")),
     _flux(getUserObject<InternalSideFluxBase>("flux")),
     _slope(getUserObject<SlopeLimitingBase>("slope_limiting")),
     _rho_var(coupled("rho")),
     _rhou_var(coupled("rhou")),
     _rhov_var(isCoupled("rhov") ? coupled("rhov") : zero),
     _rhow_var(isCoupled("rhow") ? coupled("rhow") : zero),
-    _rhoe_var(coupled("rhoe"))
+    _rhoe_var(coupled("rhoe")),
+    _fp(getUserObject<SinglePhaseFluidProperties>("fluid_properties"))
 {
   _jmap.insert(std::pair<unsigned int, unsigned int>(_rho_var, 0));
   _jmap.insert(std::pair<unsigned int, unsigned int>(_rhou_var, 1));
@@ -55,6 +62,32 @@ CNSFVThermalFluxInterface::CNSFVThermalFluxInterface(const InputParameters & par
   {
     mooseError("In order to use the CNSFVThermalFluxInterface kernel, you must specify a boundary where it will live.");
   }
+  if (!parameters.isParamValid("block"))
+  {
+    mooseError("In order to use the CNSFVThermalFluxInterface kernel, you must specify the block in which the variable lives.");
+  }
+}
+
+void CNSFVThermalFluxInterface::computeElemNeighResidual(Moose::DGResidualType type)
+{
+  // This is necessary as FVM variables are not defined on the interface but at the center of the elements.
+  if (this->blockRestricted() && !this->hasBlocks(_current_elem->subdomain_id()))
+    // Our variable is defined on the other side of the interface.
+    return;
+
+  bool is_elem;
+  if (type == Moose::Element)
+    is_elem = true;
+  else
+    is_elem = false;
+
+  const VariableTestValue & test_space = is_elem ? _test : _test_neighbor;
+  DenseVector<Number> & re = is_elem ? _assembly.residualBlock(_var.number())
+                                     : _assembly.residualBlockNeighbor(_neighbor_var.number());
+
+  for (_qp = 0; _qp < _qrule->n_points(); _qp++)
+    for (_i = 0; _i < test_space.size(); _i++)
+      re(_i) += _JxW[_qp] * _coord[_qp] * computeQpResidual(type);
 }
 
 Real CNSFVThermalFluxInterface::computeQpResidual(Moose::DGResidualType type)
@@ -67,10 +100,12 @@ Real CNSFVThermalFluxInterface::computeQpResidual(Moose::DGResidualType type)
   /// 4 for total-energy
 
   std::vector<Real> uvec1 = {_rho1[_qp], _rhou1[_qp], _rhov1[_qp], _rhow1[_qp], _rhoe1[_qp]};
+
   std::vector<Real> uvec2 = _bc_uo.getGhostCellValue(_current_side,
                                                      _current_elem->id(),
                                                      uvec1,
                                                      _normals[_qp]);
+  
 
   // We assume that temperature has been set as the neighboring variable.
   Real re = 0.;
@@ -81,15 +116,25 @@ Real CNSFVThermalFluxInterface::computeQpResidual(Moose::DGResidualType type)
                                                  uvec2,
                                                  _normals[_qp],
                                                  _tid);
+
   switch (type)
   {
     case Moose::Element:
       re = flux[_component] * _test[_i][_qp];
       break;
+
     case Moose::Neighbor:
-      re = 0.;
-      // mooseWarning("neighbor gradient  : ", _grad_neighbor_value[_qp], "\n",
-      //              "fluid gradient . n : ", _slope.limitElementSlope()[4]);
+      // We set the thermal gradient in the neighboring material to match the heat flux into the fluid.
+      if (_component == "total-energy")
+      {
+        // The slope limiter computes the gradients of the primitive variables (p,u,v,w,T).
+        Real rhoInv = 1. / uvec1[0];
+        Real kinEng = 0.5 * rhoInv * (uvec1[1] * uvec1[1] + uvec1[2] * uvec1[2] + uvec1[3] * uvec1[3]);
+        Real intEng = (uvec1[4] - kinEng) * rhoInv;
+        re = _fp.k(rhoInv, intEng) * _slope.limitElementSlope()[4] * _normals[_qp] * _test_neighbor[_i][_qp] / _k_neighbor[_qp];
+      }
+      else
+        re = 0.;
       break;
   }
 
@@ -125,6 +170,7 @@ Real CNSFVThermalFluxInterface::computeQpJacobian(Moose::DGJacobianType type)
   //                                                     _tid);
 
   Real re = 0.;
+  return re;
   switch (type)
   {
     case Moose::ElementElement:
@@ -175,6 +221,7 @@ Real CNSFVThermalFluxInterface::computeQpOffDiagJacobian(Moose::DGJacobianType t
   //                                                     _tid);
 
   Real re = 0.;
+  return re;
   switch (type)
   {
     case Moose::ElementElement:

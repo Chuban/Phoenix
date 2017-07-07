@@ -23,8 +23,9 @@ HeatConductionKernelDMI::HeatConductionKernelDMI(
     const InputParameters &parameters)
     : DerivativeMaterialInterface<Diffusion>(parameters),
       _diffusion_coefficient(getMaterialProperty<Real>("thermal_conductivity")),
-      _d_diffusion_coefficient_dT(getMaterialPropertyDerivative<Real>(
-          "thermal_conductivity", _var.name())) {}
+      _d_diffusion_coefficient_dT(getMaterialPropertyDerivative<Real>("thermal_conductivity", _var.name()))
+{
+}
 
 Real HeatConductionKernelDMI::computeQpResidual() {
   return _diffusion_coefficient[_qp] * Diffusion::computeQpResidual();

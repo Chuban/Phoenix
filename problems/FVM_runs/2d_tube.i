@@ -29,8 +29,8 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 4
-  ny = 3
+  nx = 40
+  ny = 30
   xmax = 0.5
   ymax = 0.1
   elem_type = QUAD
@@ -62,7 +62,7 @@
     execute_on = linear
   [../]
   [./interface_bcuo]
-    type = CNSFVSlipBCUserObject
+    type = CNSFVNoSlipBCUserObject
     execute_on = linear
   [../]
   [./bottom_bcuo]
@@ -372,10 +372,9 @@
 [Executioner]
   # num_steps = 10
   type = Transient
-  num_steps = 1
   solve_type = LINEAR
   l_tol = 1e-4
-  end_time = 0.01
+  end_time = 0.1
   nl_abs_tol = 1e-12
   ss_check_tol = 1e-12
   trans_ss_check = true
@@ -395,7 +394,6 @@
     execute_on = 'initial timestep_end final'
     file_base = 2d_tube_out
     elemental_as_nodal = true
-    interval = 10
   [../]
   [./CONSOLE]
     type = Console

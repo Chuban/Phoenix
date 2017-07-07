@@ -17,9 +17,6 @@ protected:
 
   MaterialProperty<Real> &_mu;
   MaterialProperty<Real> &_d_mu_dT;
-
-  MaterialProperty<Real> &_gamma;
-  MaterialProperty<Real> &_d_gamma_dT;
 };
 
 #endif // ATMOSPHERE_H
