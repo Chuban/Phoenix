@@ -11,8 +11,8 @@
 #include "HeatConductionDMI.h"
 
 #include "CNSFVNoSlipBCUserObject.h"
-// #include "CNSFVHLLCViscousBoundaryFlux.h"
-// #include "CNSFVHLLCViscousInternalSideFlux.h"
+#include "CNSFVHLLCViscousBoundaryFlux.h"
+#include "CNSFVHLLCViscousInternalSideFlux.h"
 #include "CNSFVThermalFluxInterface.h"
 #include "CNSFVThermalResistiveBCUserObject.h"
 #include "CNSFVTempAux.h"
@@ -65,8 +65,8 @@ void PhoenixApp::registerObjects(Factory &factory) {
 
   // User Objects
   registerUserObject(CNSFVNoSlipBCUserObject);
-  // registerUserObject(CNSFVHLLCViscousBoundaryFlux);
-  // registerUserObject(CNSFVHLLCViscousInternalSideFlux);
+  registerUserObject(CNSFVHLLCViscousBoundaryFlux);
+  registerUserObject(CNSFVHLLCViscousInternalSideFlux);
   // registerUserObject(CNSFVThermalBCUserObject);
   registerUserObject(CNSFVThermalResistiveBCUserObject);
   registerUserObject(AirFluidProperties);

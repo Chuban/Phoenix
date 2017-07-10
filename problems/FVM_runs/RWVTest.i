@@ -38,7 +38,6 @@
   [./FluidProperties]
     [./fp]
       type = AirFluidProperties
-      gamma = 1.4
     [../]
   [../]
 []
@@ -75,7 +74,7 @@
     block = wind_tunnel
   [../]
   [./riemann]
-    type = CNSFVHLLCInternalSideFlux
+    type = CNSFVHLLCViscousInternalSideFlux
     execute_on = linear
   [../]
   [./inflow_bc]
@@ -87,13 +86,8 @@
     type = CNSFVFreeOutflowBoundaryFlux
     execute_on = linear
   [../]
-  [./interface_bc]
-    type = CNSFVHLLCSlipBoundaryFlux
-    execute_on = linear
-    bc_uo = interface_bcuo
-  [../]
   [./slipwall_bc]
-    type = CNSFVHLLCSlipBoundaryFlux
+    type = CNSFVHLLCViscousBoundaryFlux
     execute_on = linear
     bc_uo = slipwall_bcuo
   [../]
@@ -481,7 +475,7 @@
 []
 
 [Executioner]
-  num_steps = 10
+  num_steps = 1
   type = Transient
   end_time = 1.0
   solve_type = LINEAR

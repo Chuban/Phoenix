@@ -5,14 +5,9 @@ template<>
 InputParameters validParams<CNSFVHLLCViscousBoundaryFlux>()
 {
   InputParameters params = validParams<BoundaryFluxBase>();
-
   params.addClassDescription("A user object that computes the slip boundary flux using the HLLC approximate Riemann solver.");
-
-  params.addRequiredParam<UserObjectName>("bc_uo",
-  "Name for boundary condition user object");
-
-  params.addRequiredParam<UserObjectName>("fluid_properties",
-  "Name for fluid properties user object");
+  params.addRequiredParam<UserObjectName>("bc_uo", "Name for boundary condition user object");
+  params.addRequiredParam<UserObjectName>("fluid_properties", "Name for fluid properties user object");
 
   return params;
 }
@@ -22,6 +17,9 @@ CNSFVHLLCViscousBoundaryFlux::CNSFVHLLCViscousBoundaryFlux(const InputParameters
     _bc_uo(getUserObject<BCUserObject>("bc_uo")),
     _fp(getUserObject<SinglePhaseFluidProperties>("fluid_properties"))
 {
+  mooseWarning("CNSFVHLLCViscousBoundaryFlux::calcJacobian() does not include:\n",
+               "\tviscous terms\n",
+               "\tthermal terms");
 }
 
 CNSFVHLLCViscousBoundaryFlux::~CNSFVHLLCViscousBoundaryFlux()
@@ -35,8 +33,8 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
                                        const RealVectorValue & dwave,
                                        std::vector<Real> & flux) const
 {
-  Real eps = 1e-6;
-  Real gamma = _fp.gamma(0., 0.);
+  // Real eps = 1e-6;
+  // Real gamma = _fp.gamma(0., 0.);
 
   /// pass the inputs to local
 
@@ -98,13 +96,14 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
   Real uaver = (rhsca * uadv2 + uadv1) * rmden;
   Real vaver = (rhsca * vadv2 + vadv1) * rmden;
   Real waver = (rhsca * wadv2 + wadv1) * rmden;
-  Real entav = (rhsca * enth2 + enth1) * rmden;
+  // Real entav = (rhsca * enth2 + enth1) * rmden;
 
   /// averaged speed of sound
 
-  Real qave5 = 0.5 * (uaver * uaver + vaver * vaver + waver * waver);
-  Real cssa2 = std::max(eps, (gamma - 1.) * (entav - qave5));
-  Real cssav = std::sqrt(cssa2);
+  // Real qave5 = 0.5 * (uaver * uaver + vaver * vaver + waver * waver);
+  // Real cssa2 = std::max(eps, (gamma - 1.) * (entav - qave5));
+  // Real cssav = std::sqrt(cssa2);
+  Real cssav = 0.5 * (csou1 + csou2);
 
   /// compute the eigenvalues at the left, right, and Roe states
 
@@ -148,85 +147,39 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
   Real rhowr = omeg2 * (dsv2 * rhow2 + prst2 * nz);
   Real rhoer = omeg2 * (dsv2 * rhoe2 - pres2 * vdon2 + prsta*sm);
 
-  // Compute the gradient between the centroids of the element and the ghost.
-  //  Assume that the ghost is the mirror of the element about the side.
-  MooseMesh &mesh = _fe_problem.mesh();
-  RealVectorValue delta = mesh.elemPtr(ielem)->side_ptr(iside)->centroid() - mesh.elemPtr(ielem)->centroid();
-  //delta(0) *= 2;
-  //delta(1) *= 2;
-  //delta(2) *= 2;
-  Real deltaNorm = std::sqrt(delta(0) * delta(0) + delta(1) * delta(1) + delta(2) * delta(2));
-  // rhou gradients
-  Real gradxx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(0);
-  Real gradxy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(1);
-  Real gradxz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(2);
-  // rhov gradients
-  Real gradyx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(0);
-  Real gradyy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(1);
-  Real gradyz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(2);
-  // rhow gradient
-  Real gradzx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(0);
-  Real gradzy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(1);
-  Real gradzz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(2);
-  // momentum divergence
-  Real divmom = gradxx + gradyy + gradzz;
-  // stress tensor calculations
-  Real volvis = 0.;
-  Real kinvis = _fp.mu(v1, e1);
-  // stress tensor top row
-  Real sttrxx = volvis * divmom + kinvis * (gradxx + gradxx - 2. * divmom / 3.);
-  Real sttrxy =                   kinvis * (gradxy + gradyx);
-  Real sttrxz =                   kinvis * (gradxz + gradzx);
-  // stress tensor middle row
-  Real sttryx =                   kinvis * (gradyx + gradxy);
-  Real sttryy = volvis * divmom + kinvis * (gradyy + gradyy - 2. * divmom / 3.);
-  Real sttryz =                   kinvis * (gradyz + gradzy);
-  // stress tensor bottom row
-  Real sttrzx =                   kinvis * (gradzx + gradxz);
-  Real sttrzy =                   kinvis * (gradzy + gradyz);
-  Real sttrzz = volvis * divmom + kinvis * (gradzz + gradzz - 2. * divmom / 3.);
-
   /// compute the fluxes according to the wave speed
 
   if (s1 > 0.)
   {
-    flux[0] = vdon1 *  rho1;
-    flux[1] = vdon1 *  rhou1 + pres1 * nx - (sttrxx * nx + sttrxy * ny + sttrxz * nz);
-    flux[2] = vdon1 *  rhov1 + pres1 * ny - (sttryx * nx + sttryy * ny + sttryz * nz);
-    flux[3] = vdon1 *  rhow1 + pres1 * nz - (sttrzx * nx + sttrzy * ny + sttrzz * nz);
-    flux[4] = vdon1 * (rhoe1 + pres1) - (uadv1 * sttrxx + vadv1 * sttryx + wadv1 * sttrzx) * nx
-                                      - (uadv1 * sttrxy + vadv1 * sttryy + wadv1 * sttrzy) * ny
-                                      - (uadv1 * sttrxz + vadv1 * sttryz + wadv1 * sttrzz) * nz;
+    flux[0] = vdon1 * rho1;
+    flux[1] = vdon1 * rhou1 + pres1 * nx;
+    flux[2] = vdon1 * rhov1 + pres1 * ny;
+    flux[3] = vdon1 * rhow1 + pres1 * nz;
+    flux[4] = vdon1 * (rhoe1 + pres1);
   }
   else if (s1 <= 0. && sm > 0.)
   {
-    flux[0] = sm *  rhol;
-    flux[1] = sm *  rhoul + prsta * nx - (sttrxx * nx + sttrxy * ny + sttrxz * nz);
-    flux[2] = sm *  rhovl + prsta * ny - (sttryx * nx + sttryy * ny + sttryz * nz);
-    flux[3] = sm *  rhowl + prsta * nz - (sttrzx * nx + sttrzy * ny + sttrzz * nz);
-    flux[4] = sm * (rhoel + prsta) - (uaver * sttrxx + vaver * sttryx + waver * sttrzx) * nx
-                                   - (uaver * sttrxy + vaver * sttryy + waver * sttrzy) * ny
-                                   - (uaver * sttrxz + vaver * sttryz + waver * sttrzz) * nz;
+    flux[0] = sm * rhol;
+    flux[1] = sm * rhoul + prsta * nx;
+    flux[2] = sm * rhovl + prsta * ny;
+    flux[3] = sm * rhowl + prsta * nz;
+    flux[4] = sm * (rhoel + prsta);
   }
   else if (sm <= 0. && s2 >= 0.)
   {
-    flux[0] = sm *  rhor;
-    flux[1] = sm *  rhour + prsta * nx - (sttrxx * nx + sttrxy * ny + sttrxz * nz);
-    flux[2] = sm *  rhovr + prsta * ny - (sttryx * nx + sttryy * ny + sttryz * nz);
-    flux[3] = sm *  rhowr + prsta * nz - (sttrzx * nx + sttrzy * ny + sttrzz * nz);
-    flux[4] = sm * (rhoer + prsta) - (uaver * sttrxx + vaver * sttryx + waver * sttrzx) * nx
-                                   - (uaver * sttrxy + vaver * sttryy + waver * sttrzy) * ny
-                                   - (uaver * sttrxz + vaver * sttryz + waver * sttrzz) * nz;
+    flux[0] = sm * rhor;
+    flux[1] = sm * rhour + prsta * nx;
+    flux[2] = sm * rhovr + prsta * ny;
+    flux[3] = sm * rhowr + prsta * nz;
+    flux[4] = sm * (rhoer + prsta);
   }
   else if (s2 < 0.)
   {
-    flux[0] = vdon2 *  rho2;
-    flux[1] = vdon2 *  rhou2 + pres2 * nx - (sttrxx * nx + sttrxy * ny + sttrxz * nz);
-    flux[2] = vdon2 *  rhov2 + pres2 * ny - (sttryx * nx + sttryy * ny + sttryz * nz);
-    flux[3] = vdon2 *  rhow2 + pres2 * nz - (sttrzx * nx + sttrzy * ny + sttrzz * nz);
-    flux[4] = vdon2 * (rhoe2 + pres2) - (uadv2 * sttrxx + vadv2 * sttryx + wadv2 * sttrzx) * nx
-                                      - (uadv2 * sttrxy + vadv2 * sttryy + wadv2 * sttrzy) * ny
-                                      - (uadv2 * sttrxz + vadv2 * sttryz + wadv2 * sttrzz) * nz;
+    flux[0] = vdon2 * rho2;
+    flux[1] = vdon2 * rhou2 + pres2 * nx;
+    flux[2] = vdon2 * rhov2 + pres2 * ny;
+    flux[3] = vdon2 * rhow2 + pres2 * nz;
+    flux[4] = vdon2 * (rhoe2 + pres2);
   }
   else
   {
@@ -260,15 +213,50 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
                 "prsta = ", prsta, "\n",
                 "Please check before continuing!\n");
   }
-  /*
-  if (ielem == 10)
-  {
-    mooseWarning2("boundary flux for ", ielem, " on side ", iside, "\n",
-                  "delta_x = ", delta(0), "\n",
-                  "delta_y = ", delta(1), "\n",
-                  "delta_z = ", delta(2));
-  }
-  */
+  
+  // Compute the gradient between the centroids of the element and the ghost.
+  //  Assume that the ghost is the mirror of the element about the side.
+  MooseMesh &mesh = _fe_problem.mesh();
+  RealVectorValue delta = mesh.elemPtr(ielem)->side_ptr(iside)->centroid() - mesh.elemPtr(ielem)->centroid();
+  Real deltaNorm = std::sqrt(delta(0) * delta(0) + delta(1) * delta(1) + delta(2) * delta(2));
+  // rhou gradients
+  Real gradxx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(0);
+  Real gradxy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(1);
+  Real gradxz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(2);
+  // rhov gradients
+  Real gradyx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(0);
+  Real gradyy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(1);
+  Real gradyz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(2);
+  // rhow gradient
+  Real gradzx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(0);
+  Real gradzy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(1);
+  Real gradzz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(2);
+  // momentum divergence
+  Real divmom = gradxx + gradyy + gradzz;
+  // stress tensor calculations
+  Real volvis = 0.;
+  Real kinvis = _fp.mu(v1, e1);
+  // stress tensor top row
+  Real sttrxx = volvis * divmom + kinvis * (gradxx + gradxx - 2. * divmom / 3.);
+  Real sttrxy =                   kinvis * (gradxy + gradyx);
+  Real sttrxz =                   kinvis * (gradxz + gradzx);
+  // stress tensor middle row
+  Real sttryx =                   kinvis * (gradyx + gradxy);
+  Real sttryy = volvis * divmom + kinvis * (gradyy + gradyy - 2. * divmom / 3.);
+  Real sttryz =                   kinvis * (gradyz + gradzy);
+  // stress tensor bottom row
+  Real sttrzx =                   kinvis * (gradzx + gradxz);
+  Real sttrzy =                   kinvis * (gradzy + gradyz);
+  Real sttrzz = volvis * divmom + kinvis * (gradzz + gradzz - 2. * divmom / 3.);
+
+  // Add the viscous terms.
+  flux[0] += 0.;
+  flux[1] += -1. * (sttrxx * nx + sttrxy * ny + sttrxz * nz);
+  flux[2] += -1. * (sttryx * nx + sttryy * ny + sttryz * nz);
+  flux[3] += -1. * (sttrzx * nx + sttrzy * ny + sttrzz * nz);
+  flux[4] += -1. * (uaver * sttrxx + vaver * sttryx + waver * sttrzx) * nx
+             -1. * (uaver * sttrxy + vaver * sttryy + waver * sttrzy) * ny
+             -1. * (uaver * sttrxz + vaver * sttryz + waver * sttrzz) * nz;
 }
 
 void
@@ -279,9 +267,9 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
                                            DenseMatrix<Real> & jac1) const
 {
   Real eps = 1e-6;
-  Real gamma = _fp.gamma(0., 0.);
-  Real gamm1 = gamma - 1.;
-  Real gamm2 = 2. - gamma;
+  // Real gamma = _fp.gamma(0., 0.);
+  // Real gamm1 = gamma - 1.;
+  // Real gamm2 = 2. - gamma;
 
   /// pass the inputs to local
 
@@ -309,8 +297,11 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
   Real e1 = rhoe1 / rho1 - 0.5 * vdov1;
   Real pres1 = _fp.pressure(v1, e1);
   Real csou1 = _fp.c(v1, e1);
+  Real gamml = _fp.gamma(v1, e1);
+  Real gaml1 = gamml - 1.;
+  Real gaml2 = 2. - gamml;
   Real enth1 = (rhoe1 + pres1) / rho1;
-  Real rq051 = 0.5 * gamm1 * vdov1;
+  Real rq051 = 0.5 * gaml1 * vdov1;
 
   /// status in the ghost cell
 
@@ -331,10 +322,12 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
   Real v2 = 1. / rho2;
   Real e2 = rhoe2 / rho2 - 0.5 * vdov2;
   Real pres2 = _fp.pressure(v2, e2);
-
   Real csou2 = _fp.c(v2, e2);
+  Real gammr = _fp.gamma(v2, e2);
+  Real gamr1 = gammr - 1.;
+  Real gamr2 = 2. - gammr;
   Real enth2 = (rhoe2 + pres2) / rho2;
-  Real rq052 = 0.5 * gamm1 * vdov2;
+  Real rq052 = 0.5 * gamr1 * vdov2;
 
   /// get the so-called Roe averaged variables
 
@@ -345,13 +338,14 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
   Real uaver = (rhsca * uadv2 + uadv1) * rmden;
   Real vaver = (rhsca * vadv2 + vadv1) * rmden;
   Real waver = (rhsca * wadv2 + wadv1) * rmden;
-  Real entav = (rhsca * enth2 + enth1) * rmden;
+  // Real entav = (rhsca * enth2 + enth1) * rmden;
 
   /// averaged speed of sound
 
-  Real qave5 = 0.5 * (uaver * uaver + vaver * vaver + waver * waver);
-  Real cssa2 = std::max(eps, (gamma - 1.) * (entav - qave5));
-  Real cssav = std::sqrt(cssa2);
+  // Real qave5 = 0.5 * (uaver * uaver + vaver * vaver + waver * waver);
+  // Real cssa2 = std::max(eps, (gamma - 1.) * (entav - qave5));
+  // Real cssav = std::sqrt(cssa2);
+  Real cssav = 0.5 * (csou1 + csou2);
 
   /// compute the eigenvalues at the left, right, and Roe states
 
@@ -385,28 +379,28 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     jac1(0, 4) = 0.;
 
     jac1(1, 0) = rq051 * nx - uadv1 * vdon1;
-    jac1(1, 1) = gamm2 * nx * uadv1 + vdon1;
-    jac1(1, 2) =         ny * uadv1 - vadv1 * gamm1 * nx;
-    jac1(1, 3) =         nz * uadv1 - wadv1 * gamm1 * nx;
-    jac1(1, 4) =                              gamm1 * nx;
+    jac1(1, 1) = gaml2 * nx * uadv1 + vdon1;
+    jac1(1, 2) =         ny * uadv1 - vadv1 * gaml1 * nx;
+    jac1(1, 3) =         nz * uadv1 - wadv1 * gaml1 * nx;
+    jac1(1, 4) =                              gaml1 * nx;
 
     jac1(2, 0) = rq051 * ny - vadv1 * vdon1;
-    jac1(2, 1) =         nx * vadv1 - uadv1 * gamm1 * ny;
-    jac1(2, 2) = gamm2 * ny * vadv1 + vdon1;
-    jac1(2, 3) =         nz * vadv1 - wadv1 * gamm1 * ny;
-    jac1(2, 4) =                              gamm1 * ny;
+    jac1(2, 1) =         nx * vadv1 - uadv1 * gaml1 * ny;
+    jac1(2, 2) = gaml2 * ny * vadv1 + vdon1;
+    jac1(2, 3) =         nz * vadv1 - wadv1 * gaml1 * ny;
+    jac1(2, 4) =                              gaml1 * ny;
 
     jac1(3, 0) = rq051 * nz - wadv1 * vdon1;
-    jac1(3, 1) =         nx * wadv1 - uadv1 * gamm1 * nz;
-    jac1(3, 2) =         ny * wadv1 - vadv1 * gamm1 * nz;
-    jac1(3, 3) = gamm2 * nz * wadv1 + vdon1;
-    jac1(3, 4) =                              gamm1 * nz;
+    jac1(3, 1) =         nx * wadv1 - uadv1 * gaml1 * nz;
+    jac1(3, 2) =         ny * wadv1 - vadv1 * gaml1 * nz;
+    jac1(3, 3) = gaml2 * nz * wadv1 + vdon1;
+    jac1(3, 4) =                              gaml1 * nz;
 
     jac1(4, 0) =               (rq051 - enth1) * vdon1;
-    jac1(4, 1) =    nx * enth1 - gamm1 * uadv1 * vdon1;
-    jac1(4, 2) =    ny * enth1 - gamm1 * vadv1 * vdon1;
-    jac1(4, 3) =    nz * enth1 - gamm1 * wadv1 * vdon1;
-    jac1(4, 4) =                         gamma * vdon1;
+    jac1(4, 1) =    nx * enth1 - gaml1 * uadv1 * vdon1;
+    jac1(4, 2) =    ny * enth1 - gaml1 * vadv1 * vdon1;
+    jac1(4, 3) =    nz * enth1 - gaml1 * wadv1 * vdon1;
+    jac1(4, 4) =                         gamml * vdon1;
   }
   else if (s1 <= 0. && sm > 0.)
   {
@@ -435,18 +429,18 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(S_M)/a(U_l) by Eq. (42).
 
     Real sm_rho1  =  rhotm * (   -vdon1 * vdon1 + rq051 + sm * s1);
-    Real sm_rhou1 =  rhotm * (nx * ( 2. * vdon1 - s1 - sm) - gamm1 * uadv1);
-    Real sm_rhov1 =  rhotm * (ny * ( 2. * vdon1 - s1 - sm) - gamm1 * vadv1);
-    Real sm_rhow1 =  rhotm * (nz * ( 2. * vdon1 - s1 - sm) - gamm1 * wadv1);
-    Real sm_rhoe1 =  rhotm * gamm1;
+    Real sm_rhou1 =  rhotm * (nx * ( 2. * vdon1 - s1 - sm) - gaml1 * uadv1);
+    Real sm_rhov1 =  rhotm * (ny * ( 2. * vdon1 - s1 - sm) - gaml1 * vadv1);
+    Real sm_rhow1 =  rhotm * (nz * ( 2. * vdon1 - s1 - sm) - gaml1 * wadv1);
+    Real sm_rhoe1 =  rhotm * gaml1;
 
     /// compute a(S_M)/a(U_r) by Eq. (43).
 
     Real sm_rho2  =  rhotm * (    vdon2 * vdon2 - rq052 - sm * s2);
-    Real sm_rhou2 =  rhotm * (nx * (-2. * vdon2 + s2 + sm) + gamm1 * uadv2);
-    Real sm_rhov2 =  rhotm * (ny * (-2. * vdon2 + s2 + sm) + gamm1 * vadv2);
-    Real sm_rhow2 =  rhotm * (nz * (-2. * vdon2 + s2 + sm) + gamm1 * wadv2);
-    Real sm_rhoe2 = -rhotm * gamm1;
+    Real sm_rhou2 =  rhotm * (nx * (-2. * vdon2 + s2 + sm) + gamr1 * uadv2);
+    Real sm_rhov2 =  rhotm * (ny * (-2. * vdon2 + s2 + sm) + gamr1 * vadv2);
+    Real sm_rhow2 =  rhotm * (nz * (-2. * vdon2 + s2 + sm) + gamr1 * wadv2);
+    Real sm_rhoe2 = -rhotm * gamr1;
 
     /// compute a(p^*)/a(U_l) by Eq. (44).
 
@@ -483,10 +477,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(rhou_l^\star)/a(U_l) by Eq. (47).
 
     Real rhoul_rho1  = omeg1 * ( uadv1 * vdon1 -      nx * rq051 + nx * ps_rho1  + rhoul * sm_rho1 );
-    Real rhoul_rhou1 = omeg1 * (  dsv1      - gamm2 * nx * uadv1 + nx * ps_rhou1 + rhoul * sm_rhou1);
-    Real rhoul_rhov1 = omeg1 * (-uadv1 * ny + gamm1 * nx * vadv1 + nx * ps_rhov1 + rhoul * sm_rhov1);
-    Real rhoul_rhow1 = omeg1 * (-uadv1 * nz + gamm1 * nx * wadv1 + nx * ps_rhow1 + rhoul * sm_rhow1);
-    Real rhoul_rhoe1 = omeg1 * (            - gamm1 * nx         + nx * ps_rhoe1 + rhoul * sm_rhoe1);
+    Real rhoul_rhou1 = omeg1 * (  dsv1      - gaml2 * nx * uadv1 + nx * ps_rhou1 + rhoul * sm_rhou1);
+    Real rhoul_rhov1 = omeg1 * (-uadv1 * ny + gaml1 * nx * vadv1 + nx * ps_rhov1 + rhoul * sm_rhov1);
+    Real rhoul_rhow1 = omeg1 * (-uadv1 * nz + gaml1 * nx * wadv1 + nx * ps_rhow1 + rhoul * sm_rhow1);
+    Real rhoul_rhoe1 = omeg1 * (            - gaml1 * nx         + nx * ps_rhoe1 + rhoul * sm_rhoe1);
 
     /// compute a(rhou_l^\star)/a(U_r) by Eq. (48).
 
@@ -499,10 +493,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(rhov_l^\star)/a(U_l) by Eq. (49).
 
     Real rhovl_rho1  = omeg1 * ( vadv1 * vdon1 -      ny * rq051 + ny*ps_rho1  + rhovl*sm_rho1 );
-    Real rhovl_rhou1 = omeg1 * (-vadv1 * nx + gamm1 * ny * uadv1 + ny*ps_rhou1 + rhovl*sm_rhou1);
-    Real rhovl_rhov1 = omeg1 * (  dsv1      - gamm2 * ny * vadv1 + ny*ps_rhov1 + rhovl*sm_rhov1);
-    Real rhovl_rhow1 = omeg1 * (-vadv1 * nz + gamm1 * ny * wadv1 + ny*ps_rhow1 + rhovl*sm_rhow1);
-    Real rhovl_rhoe1 = omeg1 * (            - gamm1 * ny         + ny*ps_rhoe1 + rhovl*sm_rhoe1);
+    Real rhovl_rhou1 = omeg1 * (-vadv1 * nx + gaml1 * ny * uadv1 + ny*ps_rhou1 + rhovl*sm_rhou1);
+    Real rhovl_rhov1 = omeg1 * (  dsv1      - gaml2 * ny * vadv1 + ny*ps_rhov1 + rhovl*sm_rhov1);
+    Real rhovl_rhow1 = omeg1 * (-vadv1 * nz + gaml1 * ny * wadv1 + ny*ps_rhow1 + rhovl*sm_rhow1);
+    Real rhovl_rhoe1 = omeg1 * (            - gaml1 * ny         + ny*ps_rhoe1 + rhovl*sm_rhoe1);
 
     /// compute a(rhov_l^\star)/a(U_r) by Eq. (50).
 
@@ -515,10 +509,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(rhow_l^\star)/a(U_l) by Eq. (51).
 
     Real rhowl_rho1  = omeg1 * ( wadv1 * vdon1 -      nz * rq051 + nz*ps_rho1  + rhowl*sm_rho1 );
-    Real rhowl_rhou1 = omeg1 * (-wadv1 * nx + gamm1 * nz * uadv1 + nz*ps_rhou1 + rhowl*sm_rhou1);
-    Real rhowl_rhov1 = omeg1 * (-wadv1 * ny + gamm1 * nz * vadv1 + nz*ps_rhov1 + rhowl*sm_rhov1);
-    Real rhowl_rhow1 = omeg1 * (  dsv1      - gamm2 * nz * wadv1 + nz*ps_rhow1 + rhowl*sm_rhow1);
-    Real rhowl_rhoe1 = omeg1 * (            - gamm1 * nz         + nz*ps_rhoe1 + rhowl*sm_rhoe1);
+    Real rhowl_rhou1 = omeg1 * (-wadv1 * nx + gaml1 * nz * uadv1 + nz*ps_rhou1 + rhowl*sm_rhou1);
+    Real rhowl_rhov1 = omeg1 * (-wadv1 * ny + gaml1 * nz * vadv1 + nz*ps_rhov1 + rhowl*sm_rhov1);
+    Real rhowl_rhow1 = omeg1 * (  dsv1      - gaml2 * nz * wadv1 + nz*ps_rhow1 + rhowl*sm_rhow1);
+    Real rhowl_rhoe1 = omeg1 * (            - gaml1 * nz         + nz*ps_rhoe1 + rhowl*sm_rhoe1);
 
     /// compute a(rhow_l^\star)/a(U_r) by Eq. (52).
 
@@ -533,10 +527,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// and rhoepl = rhoel + prsta
 
     Real rhoel_rho1  = omeg1 * (  vdon1 * enth1 -      vdon1 * rq051 + sm * ps_rho1  + rhoepl * sm_rho1 );
-    Real rhoel_rhou1 = omeg1 * ( -nx * enth1 + gamm1 * vdon1 * uadv1 + sm * ps_rhou1 + rhoepl * sm_rhou1);
-    Real rhoel_rhov1 = omeg1 * ( -ny * enth1 + gamm1 * vdon1 * vadv1 + sm * ps_rhov1 + rhoepl * sm_rhov1);
-    Real rhoel_rhow1 = omeg1 * ( -nz * enth1 + gamm1 * vdon1 * wadv1 + sm * ps_rhow1 + rhoepl * sm_rhow1);
-    Real rhoel_rhoe1 = omeg1 * (                  s1 - vdon1 * gamma + sm * ps_rhoe1 + rhoepl * sm_rhoe1);
+    Real rhoel_rhou1 = omeg1 * ( -nx * enth1 + gaml1 * vdon1 * uadv1 + sm * ps_rhou1 + rhoepl * sm_rhou1);
+    Real rhoel_rhov1 = omeg1 * ( -ny * enth1 + gaml1 * vdon1 * vadv1 + sm * ps_rhov1 + rhoepl * sm_rhov1);
+    Real rhoel_rhow1 = omeg1 * ( -nz * enth1 + gaml1 * vdon1 * wadv1 + sm * ps_rhow1 + rhoepl * sm_rhow1);
+    Real rhoel_rhoe1 = omeg1 * (                  s1 - vdon1 * gamml + sm * ps_rhoe1 + rhoepl * sm_rhoe1);
 
     /// compute a(rhoe_l^\star)/a(U_r) by Eq. (54).
 
@@ -684,18 +678,18 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(S_M)/a(U_l) by Eq. (42).
 
     Real sm_rho1  =  rhotm * (-vdon1 * vdon1 + rq051 + sm * s1);
-    Real sm_rhou1 =  rhotm * (nx * ( 2. * vdon1 - s1 - sm) - gamm1 * uadv1);
-    Real sm_rhov1 =  rhotm * (ny * ( 2. * vdon1 - s1 - sm) - gamm1 * vadv1);
-    Real sm_rhow1 =  rhotm * (nz * ( 2. * vdon1 - s1 - sm) - gamm1 * wadv1);
-    Real sm_rhoe1 =  rhotm * gamm1;
+    Real sm_rhou1 =  rhotm * (nx * ( 2. * vdon1 - s1 - sm) - gaml1 * uadv1);
+    Real sm_rhov1 =  rhotm * (ny * ( 2. * vdon1 - s1 - sm) - gaml1 * vadv1);
+    Real sm_rhow1 =  rhotm * (nz * ( 2. * vdon1 - s1 - sm) - gaml1 * wadv1);
+    Real sm_rhoe1 =  rhotm * gaml1;
 
     /// compute a(S_M)/a(U_r) by Eq. (43).
 
     Real sm_rho2  =  rhotm * ( vdon2 * vdon2 - rq052 - sm * s2);
-    Real sm_rhou2 =  rhotm * (nx * (-2. * vdon2 + s2 + sm) + gamm1 * uadv2);
-    Real sm_rhov2 =  rhotm * (ny * (-2. * vdon2 + s2 + sm) + gamm1 * vadv2);
-    Real sm_rhow2 =  rhotm * (nz * (-2. * vdon2 + s2 + sm) + gamm1 * wadv2);
-    Real sm_rhoe2 = -rhotm * gamm1;
+    Real sm_rhou2 =  rhotm * (nx * (-2. * vdon2 + s2 + sm) + gamr1 * uadv2);
+    Real sm_rhov2 =  rhotm * (ny * (-2. * vdon2 + s2 + sm) + gamr1 * vadv2);
+    Real sm_rhow2 =  rhotm * (nz * (-2. * vdon2 + s2 + sm) + gamr1 * wadv2);
+    Real sm_rhoe2 = -rhotm * gamr1;
 
     /// compute a(p^*)/a(U_l) by Eq. (44).
 
@@ -735,10 +729,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(rhou_r^\star)/a(U_r) by Eq. (47*).
 
     Real rhour_rho2  = omeg2 * ( uadv2 * vdon2 -      nx * rq052 + nx * ps_rho2  + rhour * sm_rho2 );
-    Real rhour_rhou2 = omeg2 * (  dsv2      - gamm2 * nx * uadv2 + nx * ps_rhou2 + rhour * sm_rhou2);
-    Real rhour_rhov2 = omeg2 * (-uadv2 * ny + gamm1 * nx * vadv2 + nx * ps_rhov2 + rhour * sm_rhov2);
-    Real rhour_rhow2 = omeg2 * (-uadv2 * nz + gamm1 * nx * wadv2 + nx * ps_rhow2 + rhour * sm_rhow2);
-    Real rhour_rhoe2 = omeg2 * (            - gamm1 * nx         + nx * ps_rhoe2 + rhour * sm_rhoe2);
+    Real rhour_rhou2 = omeg2 * (  dsv2      - gamr2 * nx * uadv2 + nx * ps_rhou2 + rhour * sm_rhou2);
+    Real rhour_rhov2 = omeg2 * (-uadv2 * ny + gamr1 * nx * vadv2 + nx * ps_rhov2 + rhour * sm_rhov2);
+    Real rhour_rhow2 = omeg2 * (-uadv2 * nz + gamr1 * nx * wadv2 + nx * ps_rhow2 + rhour * sm_rhow2);
+    Real rhour_rhoe2 = omeg2 * (            - gamr1 * nx         + nx * ps_rhoe2 + rhour * sm_rhoe2);
 
     /// compute a(rhou_r^\star)/a(U_l) by Eq. (48*).
 
@@ -751,10 +745,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(rhov_r^\star)/a(U_r) by Eq. (49*).
 
     Real rhovr_rho2  = omeg2 * ( vadv2 * vdon2 -      ny * rq052 + ny * ps_rho2  + rhovr * sm_rho2 );
-    Real rhovr_rhou2 = omeg2 * (-vadv2 * nx + gamm1 * ny * uadv2 + ny * ps_rhou2 + rhovr * sm_rhou2);
-    Real rhovr_rhov2 = omeg2 * (  dsv2      - gamm2 * ny * vadv2 + ny * ps_rhov2 + rhovr * sm_rhov2);
-    Real rhovr_rhow2 = omeg2 * (-vadv2 * nz + gamm1 * ny * wadv2 + ny * ps_rhow2 + rhovr * sm_rhow2);
-    Real rhovr_rhoe2 = omeg2 * (            - gamm1 * ny         + ny * ps_rhoe2 + rhovr * sm_rhoe2);
+    Real rhovr_rhou2 = omeg2 * (-vadv2 * nx + gamr1 * ny * uadv2 + ny * ps_rhou2 + rhovr * sm_rhou2);
+    Real rhovr_rhov2 = omeg2 * (  dsv2      - gamr2 * ny * vadv2 + ny * ps_rhov2 + rhovr * sm_rhov2);
+    Real rhovr_rhow2 = omeg2 * (-vadv2 * nz + gamr1 * ny * wadv2 + ny * ps_rhow2 + rhovr * sm_rhow2);
+    Real rhovr_rhoe2 = omeg2 * (            - gamr1 * ny         + ny * ps_rhoe2 + rhovr * sm_rhoe2);
 
     /// compute a(rhov_r^\star)/a(U_l) by Eq. (50*).
 
@@ -767,10 +761,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// compute a(rhow_r^\star)/a(U_r) by Eq. (51*).
 
     Real rhowr_rho2  = omeg2 * ( wadv2 * vdon2 -      nz * rq052 + nz * ps_rho2  + rhowr * sm_rho2 );
-    Real rhowr_rhou2 = omeg2 * (-wadv2 * nx + gamm1 * nz * uadv2 + nz * ps_rhou2 + rhowr * sm_rhou2);
-    Real rhowr_rhov2 = omeg2 * (-wadv2 * ny + gamm1 * nz * vadv2 + nz * ps_rhov2 + rhowr * sm_rhov2);
-    Real rhowr_rhow2 = omeg2 * (  dsv2      - gamm2 * nz * wadv2 + nz * ps_rhow2 + rhowr * sm_rhow2);
-    Real rhowr_rhoe2 = omeg2 * (            - gamm1 * nz         + nz * ps_rhoe2 + rhowr * sm_rhoe2);
+    Real rhowr_rhou2 = omeg2 * (-wadv2 * nx + gamr1 * nz * uadv2 + nz * ps_rhou2 + rhowr * sm_rhou2);
+    Real rhowr_rhov2 = omeg2 * (-wadv2 * ny + gamr1 * nz * vadv2 + nz * ps_rhov2 + rhowr * sm_rhov2);
+    Real rhowr_rhow2 = omeg2 * (  dsv2      - gamr2 * nz * wadv2 + nz * ps_rhow2 + rhowr * sm_rhow2);
+    Real rhowr_rhoe2 = omeg2 * (            - gamr1 * nz         + nz * ps_rhoe2 + rhowr * sm_rhoe2);
 
     /// compute a(rhow_r^\star)/a(U_l) by Eq. (52*).
 
@@ -785,10 +779,10 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     /// and rhoepr = rhoer + prsta
 
     Real rhoer_rho2  = omeg2 * (  vdon2 * enth2 -      vdon2 * rq052 + sm * ps_rho2  + rhoepr * sm_rho2 );
-    Real rhoer_rhou2 = omeg2 * ( -nx * enth2 + gamm1 * vdon2 * uadv2 + sm * ps_rhou2 + rhoepr * sm_rhou2);
-    Real rhoer_rhov2 = omeg2 * ( -ny * enth2 + gamm1 * vdon2 * vadv2 + sm * ps_rhov2 + rhoepr * sm_rhov2);
-    Real rhoer_rhow2 = omeg2 * ( -nz * enth2 + gamm1 * vdon2 * wadv2 + sm * ps_rhow2 + rhoepr * sm_rhow2);
-    Real rhoer_rhoe2 = omeg2 * (                  s2 - vdon2 * gamma + sm * ps_rhoe2 + rhoepr * sm_rhoe2);
+    Real rhoer_rhou2 = omeg2 * ( -nx * enth2 + gamr1 * vdon2 * uadv2 + sm * ps_rhou2 + rhoepr * sm_rhou2);
+    Real rhoer_rhov2 = omeg2 * ( -ny * enth2 + gamr1 * vdon2 * vadv2 + sm * ps_rhov2 + rhoepr * sm_rhov2);
+    Real rhoer_rhow2 = omeg2 * ( -nz * enth2 + gamr1 * vdon2 * wadv2 + sm * ps_rhow2 + rhoepr * sm_rhow2);
+    Real rhoer_rhoe2 = omeg2 * (                  s2 - vdon2 * gammr + sm * ps_rhoe2 + rhoepr * sm_rhoe2);
 
     /// compute a(rhoe_r^\star)/a(U_l) by Eq. (54*).
 
@@ -922,28 +916,28 @@ CNSFVHLLCViscousBoundaryFlux::calcJacobian(unsigned int iside,
     jac2(0, 4) = 0.;
 
     jac2(1, 0) = rq052 * nx - uadv2 * vdon2;
-    jac2(1, 1) = gamm2 * nx * uadv2 + vdon2;
-    jac2(1, 2) =         ny * uadv2 - vadv2 * gamm1 * nx;
-    jac2(1, 3) =         nz * uadv2 - wadv2 * gamm1 * nx;
-    jac2(1, 4) =                              gamm1 * nx;
+    jac2(1, 1) = gamr2 * nx * uadv2 + vdon2;
+    jac2(1, 2) =         ny * uadv2 - vadv2 * gamr1 * nx;
+    jac2(1, 3) =         nz * uadv2 - wadv2 * gamr1 * nx;
+    jac2(1, 4) =                              gamr1 * nx;
 
     jac2(2, 0) = rq052 * ny - vadv2 * vdon2;
-    jac2(2, 1) =         nx * vadv2 - uadv2 * gamm1 * ny;
-    jac2(2, 2) = gamm2 * ny * vadv2 + vdon2;
-    jac2(2, 3) =         nz * vadv2 - wadv2 * gamm1 * ny;
-    jac2(2, 4) =                              gamm1 * ny;
+    jac2(2, 1) =         nx * vadv2 - uadv2 * gamr1 * ny;
+    jac2(2, 2) = gamr2 * ny * vadv2 + vdon2;
+    jac2(2, 3) =         nz * vadv2 - wadv2 * gamr1 * ny;
+    jac2(2, 4) =                              gamr1 * ny;
 
     jac2(3, 0) = rq052 * nz - wadv2 * vdon2;
-    jac2(3, 1) =         nx * wadv2 - uadv2 * gamm1 * ny;
-    jac2(3, 2) =         ny * wadv2 - vadv2 * gamm1 * ny;
-    jac2(3, 3) = gamm2 * nz * wadv2 + vdon2;
-    jac2(3, 4) =                              gamm1 * ny;
+    jac2(3, 1) =         nx * wadv2 - uadv2 * gamr1 * ny;
+    jac2(3, 2) =         ny * wadv2 - vadv2 * gamr1 * ny;
+    jac2(3, 3) = gamr2 * nz * wadv2 + vdon2;
+    jac2(3, 4) =                              gamr1 * ny;
 
     jac2(4, 0) =                 (rq052 - enth2) * vdon2;
-    jac2(4, 1) =      nx * enth2 - gamm1 * uadv2 * vdon2;
-    jac2(4, 2) =      ny * enth2 - gamm1 * vadv2 * vdon2;
-    jac2(4, 3) =      nz * enth2 - gamm1 * wadv2 * vdon2;
-    jac2(4, 4) =                           gamma * vdon2;
+    jac2(4, 1) =      nx * enth2 - gamr1 * uadv2 * vdon2;
+    jac2(4, 2) =      ny * enth2 - gamr1 * vadv2 * vdon2;
+    jac2(4, 3) =      nz * enth2 - gamr1 * wadv2 * vdon2;
+    jac2(4, 4) =                           gammr * vdon2;
 
     /// compute d(U_r)/d(U_l) by slip wall BC
 
