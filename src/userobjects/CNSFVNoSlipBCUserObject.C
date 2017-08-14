@@ -7,8 +7,7 @@ InputParameters validParams<CNSFVNoSlipBCUserObject>()
 
   params.addClassDescription("A user object that computes the ghost cell values based on the slip wall boundary condition.");
 
-  params.addRequiredParam<UserObjectName>("fluid_properties",
-  "Name for fluid properties user object");
+  params.addRequiredParam<UserObjectName>("fluid_properties", "Name for fluid properties user object");
 
   return params;
 }

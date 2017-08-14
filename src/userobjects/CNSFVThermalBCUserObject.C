@@ -51,8 +51,6 @@ std::vector<Real> CNSFVThermalBCUserObject::getGhostCellValue(unsigned int iside
   Real intEng = (rhoe1 - kinEng) * rhoInv;
   Real fluidT = _fp.temperature(rhoInv, intEng);
 
-  Real deltaT = 0.;
-
   // We need the average temperature on the interface.
   Node * node;
   unsigned int numNodes = _mesh.elemPtr(ielem)->side(iside)->n_nodes();
@@ -64,31 +62,32 @@ std::vector<Real> CNSFVThermalBCUserObject::getGhostCellValue(unsigned int iside
   }
   bndTemp /= numNodes;
 
+	// Since there's no resistive layer, dT is zero.
+	Real deltaT = 0.;
+
   // We don't actually want to use the boundary temperature.
   // We want to project the cell temperature to the ghost cell through the bounary temperature.
   Real ghostTemp = 2 * (bndTemp - deltaT) - fluidT;
 
-  Real rhoScl = std::pow(fluidT / ghostTemp, _fp.gamma(rhoInv, intEng) - 1);
-
   Real mdotn = rhou1 * nx + rhov1 * ny + rhow1 * nz;
 
-  urigh[0] = rhoScl * (rho1);
-  rhoInv = 1. / urigh[0];
+  urigh[0] = rho1;  // There can be no mass flux across this boundary -> constant density
+  Real ghostPres = _fp.P(urigh[0], ghostTemp);
   if (_condition == "slip")
   {
-    urigh[1] = rhoScl * (rhou1 - 2. * mdotn * nx);
-    urigh[2] = rhoScl * (rhov1 - 2. * mdotn * ny);
-    urigh[3] = rhoScl * (rhow1 - 2. * mdotn * nz);
+    urigh[1] = rhou1 - 2. * mdotn * nx;
+    urigh[2] = rhov1 - 2. * mdotn * ny;
+    urigh[3] = rhow1 - 2. * mdotn * nz;
   }
   else
   {
-    urigh[1] = -1. * rhoScl * rhou1;
-    urigh[2] = -1. * rhoScl * rhov1;
-    urigh[3] = -1. * rhoScl * rhow1;
+    urigh[1] = -1. * rhou1;
+    urigh[2] = -1. * rhov1;
+    urigh[3] = -1. * rhow1;
   }
-  urigh[4] = 0.5 * (urigh[1] * urigh[1] +
-                    urigh[2] * urigh[2] +
-                    urigh[3] * urigh[3]) * rhoInv + urigh[0] * _fp.cv(0., 0.) * ghostTemp;
+  urigh[4] = 0.5 * rhoInv * (urigh[1] * urigh[1] +
+                             urigh[2] * urigh[2] +
+                             urigh[3] * urigh[3]) + urigh[0] * _fp.e(ghostPres, urigh[0]);
 
   return urigh;
 }

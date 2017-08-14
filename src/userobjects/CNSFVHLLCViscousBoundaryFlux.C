@@ -147,6 +147,62 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
   Real rhowr = omeg2 * (dsv2 * rhow2 + prst2 * nz);
   Real rhoer = omeg2 * (dsv2 * rhoe2 - pres2 * vdon2 + prsta*sm);
 
+  // Compute the momentum gradient between the centroid of the element and the ghost.
+  //  Assume that the ghost is the mirror of the element about the side.
+  MooseMesh &mesh = _fe_problem.mesh();
+  RealVectorValue delta = 2 * (mesh.elemPtr(ielem)->side_ptr(iside)->centroid() - mesh.elemPtr(ielem)->centroid());
+  Real deltaNorm = std::sqrt(delta(0) * delta(0) + delta(1) * delta(1) + delta(2) * delta(2));
+  // u gradients
+  Real gradxx = delta(0) < 1e-3 * deltaNorm ? 0. : (uadv2 - uadv1) / delta(0);
+  Real gradxy = delta(1) < 1e-3 * deltaNorm ? 0. : (uadv2 - uadv1) / delta(1);
+  Real gradxz = delta(2) < 1e-3 * deltaNorm ? 0. : (uadv2 - uadv1) / delta(2);
+  // v gradients
+  Real gradyx = delta(0) < 1e-3 * deltaNorm ? 0. : (vadv2 - vadv1) / delta(0);
+  Real gradyy = delta(1) < 1e-3 * deltaNorm ? 0. : (vadv2 - vadv1) / delta(1);
+  Real gradyz = delta(2) < 1e-3 * deltaNorm ? 0. : (vadv2 - vadv1) / delta(2);
+  // w gradient
+  Real gradzx = delta(0) < 1e-3 * deltaNorm ? 0. : (wadv2 - wadv1) / delta(0);
+  Real gradzy = delta(1) < 1e-3 * deltaNorm ? 0. : (wadv2 - wadv1) / delta(1);
+  Real gradzz = delta(2) < 1e-3 * deltaNorm ? 0. : (wadv2 - wadv1) / delta(2);
+  // velocity divergence
+  Real divmom = gradxx + gradyy + gradzz;
+
+  // Compute the temperature gradient between the centroid of the element and the ghost.
+  //  Assume that the ghost is the mirror of the element about the side.
+  Real temp1 = _fp.temperature(v1, e1);
+  Real temp2 = _fp.temperature(v2, e2);
+  // T gradient
+  Real gradTx = delta(0) < 1e-3 * deltaNorm ? 0. : (temp2 - temp1) / delta(0);
+  Real gradTy = delta(1) < 1e-3 * deltaNorm ? 0. : (temp2 - temp1) / delta(1);
+  Real gradTz = delta(2) < 1e-3 * deltaNorm ? 0. : (temp2 - temp1) / delta(2);
+
+  // We need material properties for viscous and thermal fluxes.
+  Real thermk, kinvis;  // thermal conductivity, kinetic viscosity
+  if (s1 > 0. || (s1 <= 0. && sm >0.))
+  {
+    thermk = _fp.k(v1, e1);
+    kinvis = _fp.mu(v1, e1);
+  }
+  else
+  {
+    thermk = _fp.k(v2, e2);
+    kinvis = _fp.mu(v2, e2);
+  }
+
+  // stress tensor calculations
+  // stress tensor top row
+  Real sttrxx = 2. * kinvis * (gradxx - 1. * divmom / 3.);
+  Real sttrxy = 1. * kinvis * (gradxy + gradyx);
+  Real sttrxz = 1. * kinvis * (gradxz + gradzx);
+  // stress tensor middle row
+  Real sttryx = 1. * kinvis * (gradyx + gradxy);
+  Real sttryy = 2. * kinvis * (gradyy - 1. * divmom / 3.);
+  Real sttryz = 1. * kinvis * (gradyz + gradzy);
+  // stress tensor bottom row
+  Real sttrzx = 1. * kinvis * (gradzx + gradxz);
+  Real sttrzy = 1. * kinvis * (gradzy + gradyz);
+  Real sttrzz = 2. * kinvis * (gradzz - 1. * divmom / 3.);
+
   /// compute the fluxes according to the wave speed
 
   if (s1 > 0.)
@@ -156,6 +212,18 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
     flux[2] = vdon1 * rhov1 + pres1 * ny;
     flux[3] = vdon1 * rhow1 + pres1 * nz;
     flux[4] = vdon1 * (rhoe1 + pres1);
+
+    // Add the viscous terms.
+    flux[1] += -1. * (sttrxx * nx + sttrxy * ny + sttrxz * nz);
+    flux[2] += -1. * (sttryx * nx + sttryy * ny + sttryz * nz);
+    flux[3] += -1. * (sttrzx * nx + sttrzy * ny + sttrzz * nz);
+    flux[4] += -1. * ( (uadv1 * sttrxx + vadv1 * sttryx + wadv1 * sttrzx) * nx +
+                       (uadv1 * sttrxy + vadv1 * sttryy + wadv1 * sttrzy) * ny +
+                       (uadv1 * sttrxz + vadv1 * sttryz + wadv1 * sttrzz) * nz );
+
+    // Add the thermal term.
+    flux[4] += -1. * thermk * (gradTx * nx + gradTy * ny + gradTz * nz);
+    
   }
   else if (s1 <= 0. && sm > 0.)
   {
@@ -164,6 +232,17 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
     flux[2] = sm * rhovl + prsta * ny;
     flux[3] = sm * rhowl + prsta * nz;
     flux[4] = sm * (rhoel + prsta);
+
+    // Add the viscous terms.
+    flux[1] -= -1. * (sttrxx * nx + sttrxy * ny + sttrxz * nz) * sm * omeg1;
+    flux[2] -= -1. * (sttryx * nx + sttryy * ny + sttryz * nz) * sm * omeg1;
+    flux[3] -= -1. * (sttrzx * nx + sttrzy * ny + sttrzz * nz) * sm * omeg1;
+    flux[4] -= -1. * ( (uadv1 * sttrxx + vadv1 * sttryx + wadv1 * sttrzx) * nx +
+                       (uadv1 * sttrxy + vadv1 * sttryy + wadv1 * sttrzy) * ny +
+                       (uadv1 * sttrxz + vadv1 * sttryz + wadv1 * sttrzz) * nz ) * sm * omeg1;
+
+    // Add the thermal term.
+    flux[4] -= -1. * thermk * (gradTx * nx + gradTy * ny + gradTz * nz) * sm * omeg1;
   }
   else if (sm <= 0. && s2 >= 0.)
   {
@@ -172,6 +251,17 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
     flux[2] = sm * rhovr + prsta * ny;
     flux[3] = sm * rhowr + prsta * nz;
     flux[4] = sm * (rhoer + prsta);
+
+    // Add the viscous terms.
+    flux[1] -= -1. * (sttrxx * nx + sttrxy * ny + sttrxz * nz) * sm * omeg2;
+    flux[2] -= -1. * (sttryx * nx + sttryy * ny + sttryz * nz) * sm * omeg2;
+    flux[3] -= -1. * (sttrzx * nx + sttrzy * ny + sttrzz * nz) * sm * omeg2;
+    flux[4] -= -1. * ( (uadv2 * sttrxx + vadv2 * sttryx + wadv2 * sttrzx) * nx +
+                       (uaver * sttrxy + vadv2 * sttryy + wadv2 * sttrzy) * ny +
+                       (uaver * sttrxz + vadv2 * sttryz + wadv2 * sttrzz) * nz ) * sm * omeg2;
+
+    // Add the thermal term.
+    flux[4] -= -1. * thermk * (gradTx * nx + gradTy * ny + gradTz * nz) * sm * omeg2;
   }
   else if (s2 < 0.)
   {
@@ -180,6 +270,17 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
     flux[2] = vdon2 * rhov2 + pres2 * ny;
     flux[3] = vdon2 * rhow2 + pres2 * nz;
     flux[4] = vdon2 * (rhoe2 + pres2);
+
+    // Add the viscous terms.
+    flux[1] += -1. * (sttrxx * nx + sttrxy * ny + sttrxz * nz);
+    flux[2] += -1. * (sttryx * nx + sttryy * ny + sttryz * nz);
+    flux[3] += -1. * (sttrzx * nx + sttrzy * ny + sttrzz * nz);
+    flux[4] += -1. * ( (uadv2 * sttrxx + vadv2 * sttryx + wadv2 * sttrzx) * nx +
+                       (uadv2 * sttrxy + vadv2 * sttryy + wadv2 * sttrzy) * ny +
+                       (uadv2 * sttrxz + vadv2 * sttryz + wadv2 * sttrzz) * nz );
+
+    // Add the thermal term.
+    flux[4] += -1. * thermk * (gradTx * nx + gradTy * ny + gradTz * nz);
   }
   else
   {
@@ -213,50 +314,6 @@ CNSFVHLLCViscousBoundaryFlux::calcFlux(unsigned int iside,
                 "prsta = ", prsta, "\n",
                 "Please check before continuing!\n");
   }
-  
-  // Compute the gradient between the centroids of the element and the ghost.
-  //  Assume that the ghost is the mirror of the element about the side.
-  MooseMesh &mesh = _fe_problem.mesh();
-  RealVectorValue delta = mesh.elemPtr(ielem)->side_ptr(iside)->centroid() - mesh.elemPtr(ielem)->centroid();
-  Real deltaNorm = std::sqrt(delta(0) * delta(0) + delta(1) * delta(1) + delta(2) * delta(2));
-  // rhou gradients
-  Real gradxx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(0);
-  Real gradxy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(1);
-  Real gradxz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhou2 - rhou1) / delta(2);
-  // rhov gradients
-  Real gradyx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(0);
-  Real gradyy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(1);
-  Real gradyz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhov2 - rhov1) / delta(2);
-  // rhow gradient
-  Real gradzx = delta(0) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(0);
-  Real gradzy = delta(1) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(1);
-  Real gradzz = delta(2) < 1e-3 * deltaNorm ? 0. : (rhow2 - rhow1) / delta(2);
-  // momentum divergence
-  Real divmom = gradxx + gradyy + gradzz;
-  // stress tensor calculations
-  Real volvis = 0.;
-  Real kinvis = _fp.mu(v1, e1);
-  // stress tensor top row
-  Real sttrxx = volvis * divmom + kinvis * (gradxx + gradxx - 2. * divmom / 3.);
-  Real sttrxy =                   kinvis * (gradxy + gradyx);
-  Real sttrxz =                   kinvis * (gradxz + gradzx);
-  // stress tensor middle row
-  Real sttryx =                   kinvis * (gradyx + gradxy);
-  Real sttryy = volvis * divmom + kinvis * (gradyy + gradyy - 2. * divmom / 3.);
-  Real sttryz =                   kinvis * (gradyz + gradzy);
-  // stress tensor bottom row
-  Real sttrzx =                   kinvis * (gradzx + gradxz);
-  Real sttrzy =                   kinvis * (gradzy + gradyz);
-  Real sttrzz = volvis * divmom + kinvis * (gradzz + gradzz - 2. * divmom / 3.);
-
-  // Add the viscous terms.
-  flux[0] += 0.;
-  flux[1] += -1. * (sttrxx * nx + sttrxy * ny + sttrxz * nz);
-  flux[2] += -1. * (sttryx * nx + sttryy * ny + sttryz * nz);
-  flux[3] += -1. * (sttrzx * nx + sttrzy * ny + sttrzz * nz);
-  flux[4] += -1. * (uaver * sttrxx + vaver * sttryx + waver * sttrzx) * nx
-             -1. * (uaver * sttrxy + vaver * sttryy + waver * sttrzy) * ny
-             -1. * (uaver * sttrxz + vaver * sttryz + waver * sttrzz) * nz;
 }
 
 void

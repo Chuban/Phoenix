@@ -42,12 +42,8 @@ std::vector<Real> CNSFVThermalResistiveBCUserObject::getGhostCellValue(unsigned 
   Real intEng = (rhoe1 - kinEng) * rhoInv;  // specific internal energy (J/kg)
   Real fluidT = _fp.temperature(rhoInv, intEng);
 
-  // Find the distance from the centroid to the middle of the side.
-  Elem * element = _mesh.elemPtr(ielem);
-  RealVectorValue displacement = element->centroid() - element->side(iside)->centroid();
-  Real dx = displacement.norm();
-
   // We need the average temperature on the interface.
+	Elem * element = _mesh.elemPtr(ielem);
   Node * node;
   unsigned int numNodes = element->side(iside)->n_nodes();
   Real bndTemp = 0;
@@ -58,8 +54,13 @@ std::vector<Real> CNSFVThermalResistiveBCUserObject::getGhostCellValue(unsigned 
   }
   bndTemp /= numNodes;
 
+	// We need the temperature gradient in the neighboring element.
+	Elem * neighbor = _mesh.elemPtr(ielem)->neighbor(iside);
+	auto gradPhi = _temperature->gradPhi();
+	Real heatFlux = _temperature->getGradient(neighbor, gradPhi.stdVector()) * dwave;
+
   // Compute the temperature jump across the interface.
-  Real deltaT = (bndTemp - fluidT) * _fp.k(rhoInv, intEng) * _resistivity * _thickness / (dx + _fp.k(rhoInv, intEng) * _resistivity * _thickness);
+  Real deltaT = heatFlux * _resistivity * _thickness;
 
   // We don't actually want to use the boundary temperature.
   // We want to project the cell temperature to the ghost cell through the bounary temperature.

@@ -59,6 +59,12 @@ Real AirFluidProperties::s(Real, Real) const
   return 0;
 }
 
+Real AirFluidProperties::g(Real, Real) const
+{
+  mooseError(name(), ": g() not implemented.");
+  return 0;
+}
+
 void AirFluidProperties::dp_duv(Real, Real, Real &, Real &, Real &, Real &) const
 {
   mooseError(name(), ": dp_duv() not implemented.");

@@ -33,6 +33,7 @@ public:
 
   // These are not implemented.
   virtual Real s(Real v, Real u) const override;
+  virtual Real g(Real v, Real u) const override;
   virtual void dp_duv(Real v, Real u, Real & dp_dv, Real & dp_du, Real & dT_dv, Real & dT_du) const override;
 
   /// Compute internal energy and density from specific entropy and pressure

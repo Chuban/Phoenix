@@ -97,30 +97,21 @@ Real CNSFVThermalFluxInterface::computeQpResidual(Moose::DGResidualType type)
   /// 1 for x-momentum
   /// 2 for y-momentum
   /// 3 for z-momentum
-  /// 4 for total-energy
-
-  std::vector<Real> uvec1 = {_rho1[_qp], _rhou1[_qp], _rhov1[_qp], _rhow1[_qp], _rhoe1[_qp]};
-
-  std::vector<Real> uvec2 = _bc_uo.getGhostCellValue(_current_side,
-                                                     _current_elem->id(),
-                                                     uvec1,
-                                                     _normals[_qp]);
-  
+  /// 4 for total-energy  
 
   // We assume that temperature has been set as the neighboring variable.
   Real re = 0.;
-  const std::vector<Real> & flux = _flux.getFlux(_current_side,
-                                                 _current_elem->id(),
-                                                 _neighbor_elem->id(),
-                                                 uvec1,
-                                                 uvec2,
-                                                 _normals[_qp],
-                                                 _tid);
+	std::vector<Real> uvec1 = {_rho1[_qp], _rhou1[_qp], _rhov1[_qp], _rhow1[_qp], _rhoe1[_qp]};
+	std::vector<Real> uvec2(5, 0.);
 
   switch (type)
   {
     case Moose::Element:
-      re = flux[_component] * _test[_i][_qp];
+			uvec2 = _bc_uo.getGhostCellValue(_current_side,
+                                       _current_elem->id(),
+                                       uvec1,
+                                       _normals[_qp]);
+      re = _flux.getFlux(_current_side, _current_elem->id(), _neighbor_elem->id(), uvec1, uvec2, _normals[_qp], _tid)[_component] * _test[_i][_qp];
       break;
 
     case Moose::Neighbor:
