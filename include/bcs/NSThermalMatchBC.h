@@ -21,6 +21,15 @@ protected:
   unsigned int _rho_var;
   const VariableValue & _rho;
 
+  unsigned int _rhou_var;
+  const VariableValue & _rhou;
+
+  unsigned int _rhov_var;
+  const VariableValue & _rhov;
+
+  unsigned int _rhow_var;
+  const VariableValue & _rhow;
+
   const IdealGasFluidProperties & _fp;
 };
 

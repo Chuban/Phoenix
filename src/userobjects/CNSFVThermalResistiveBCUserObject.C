@@ -2,8 +2,6 @@
 
 template <> InputParameters validParams<CNSFVThermalResistiveBCUserObject>()
 {
-  MooseEnum condition("slip no-slip");
-
   InputParameters params = validParams<CNSFVThermalBCUserObject>();
 
   params.addClassDescription("A user object that computes the ghost cell values based on a thermally resistive boundary condition.");

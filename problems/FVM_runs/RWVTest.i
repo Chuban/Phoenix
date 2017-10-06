@@ -1,10 +1,10 @@
-#[Preconditioning]
-#  [./SMP]
-#    # Why does this option hurt the solution speed?    	
-#    # solve_type = PJFNK
-#    type = SMP
-#  [../]
-#[]
+# [Preconditioning]
+# [./SMP]
+# # Why does this option hurt the solution speed?    	
+# # solve_type = PJFNK
+# type = SMP
+# [../]
+# []
 
 [GlobalParams]
   order = CONSTANT
@@ -43,7 +43,7 @@
 []
 
 [UserObjects]
-	[./rslope]
+  [./rslope]
     type = CNSFVLeastSquaresSlopeReconstruction
     execute_on = 'initial linear'
     block = wind_tunnel
@@ -53,14 +53,14 @@
     execute_on = linear
     block = wind_tunnel
   [../]
-	[./riemann]
+  [./riemann]
     type = CNSFVHLLCViscousInternalSideFlux
     execute_on = linear
   [../]
-	[./interface_bc]
-		type = CNSFVHLLCViscousInternalSideFlux
-		execute_on = linear
-	[../]
+  [./interface_bc]
+    type = CNSFVHLLCViscousInternalSideFlux
+    execute_on = linear
+  [../]
   [./interface_bcuo]
     type = CNSFVThermalResistiveBCUserObject
     condition = no-slip
@@ -69,29 +69,29 @@
     resistivity = 0.
     thickness = 0.
   [../]
-	[./inflow_bcuo]
-    type = CNSFVFreeInflowBCUserObject
+  [./inflow_bcuo]
+    type = CNSFVCharacteristicBCUserObject
     execute_on = linear
   [../]
   [./inflow_bc]
-    type = CNSFVFreeInflowBoundaryFlux
+    type = CNSFVHLLCInflowOutflowBoundaryFlux
     bc_uo = inflow_bcuo
     execute_on = linear
   [../]
-	[./outflow_bcuo]
-    type = CNSFVFreeOutflowBCUserObject
+  [./outflow_bcuo]
+    type = CNSFVCharacteristicBCUserObject
     execute_on = linear
   [../]
   [./outflow_bc]
-    type = CNSFVFreeOutflowBoundaryFlux
+    type = CNSFVHLLCInflowOutflowBoundaryFlux
     bc_uo = outflow_bcuo
     execute_on = linear
   [../]
-	[./slip_wall_bcuo]
+  [./slip_wall_bcuo]
     type = CNSFVSlipBCUserObject
     execute_on = linear
   [../]
-	[./slip_wall_bc]
+  [./slip_wall_bc]
     type = CNSFVHLLCSlipBoundaryFlux
     execute_on = linear
     bc_uo = slip_wall_bcuo
@@ -146,10 +146,10 @@
     value = 1.17659149022
   [../]
   [./rhou_ic]
+    # value = 0.
     value = 1.17659149022
     variable = momx
     type = ConstantIC
-    # value = 0.
   [../]
   [./rhov_ic]
     variable = momy
@@ -157,10 +157,10 @@
     value = 0.
   [../]
   [./energy_ic]
+    # value = 254313.088296
     variable = energy
     type = ConstantIC
     value = 253313.088296
-		# value = 254313.088296
   [../]
   [./mach_ic]
     type = CNSFVMachIC
@@ -177,6 +177,19 @@
   # ### Time derivative of momentum in x-direction
   # ### Time derivative of momentum in y-direction
   # ### Time derivative of total energy
+  # [./time_temperature]
+  # implicit = true
+  # type = SpecificHeatConductionTimeDerivative
+  # variable = solid_temperature
+  # block = 'heat_flux_plate'
+  # [../]
+  # [./diff_temperature]
+  # # thermal_conductivity = thermal_conductivity
+  # implicit = true
+  # type = HeatConductionDMI
+  # variable = solid_temperature
+  # block = 'heat_flux_plate'
+  # [../]
   [./time_fluid_density]
     implicit = true
     type = TimeDerivative
@@ -207,12 +220,6 @@
     variable = solid_temperature
     block = 'holder coupon solid_wall backing heat_flux_plate'
   [../]
-#	[./time_temperature]
-#    implicit = true
-#    type = SpecificHeatConductionTimeDerivative
-#    variable = solid_temperature
-#    block = 'heat_flux_plate'
-#  [../]
   [./diff_temperature]
     # thermal_conductivity = thermal_conductivity
     implicit = true
@@ -220,13 +227,6 @@
     variable = solid_temperature
     block = 'holder coupon solid_wall backing heat_flux_plate'
   [../]
-#	[./diff_temperature]
-#    # thermal_conductivity = thermal_conductivity
-#    implicit = true
-#    type = HeatConductionDMI
-#    variable = solid_temperature
-#    block = 'heat_flux_plate'
-#  [../]
 []
 
 [DGKernels]
@@ -434,7 +434,13 @@
   [./ambient_temp]
     type = DirichletBC
     variable = solid_temperature
-    boundary = 'hfp exterior'
+    boundary = exterior
+    value = 300.
+  [../]
+  [./HFP_temp]
+    type = DirichletBC
+    variable = solid_temperature
+    boundary = hfp
     value = 300.
   [../]
 []
@@ -450,13 +456,13 @@
     temperature = solid_temperature
   [../]
   [./Holder_Steatite]
-    type = Aluminum2024
-    block = 'holder'
+    type = Steatite
+    block = holder
     temperature = solid_temperature
   [../]
-	 [./HFP_Steatite]
-    type = Aluminum2024
-    block = 'heat_flux_plate'
+  [./HFP_Steatite]
+    type = Steatite
+    block = heat_flux_plate
     temperature = solid_temperature
   [../]
 []
@@ -473,13 +479,12 @@
 [Executioner]
   # num_steps = 10
   type = Transient
-  # end_time = 0.1
-  end_time = 1e-3
+  end_time = 1e-5
   solve_type = LINEAR
   l_tol = 1e-6
   nl_abs_tol = 1e-9
   ss_check_tol = 1e-12
-  trans_ss_check = true
+  trans_ss_check = false
   [./TimeIntegrator]
     type = ExplicitTVDRK2
   [../]
@@ -496,7 +501,7 @@
     execute_on = 'initial timestep_end final'
     elemental_as_nodal = true
     output_material_properties = false
-    interval = 25
+    interval = 10
   [../]
   [./CONSOLE]
     type = Console

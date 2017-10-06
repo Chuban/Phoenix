@@ -4,6 +4,7 @@
 #include "InterfaceKernel.h"
 #include "IdealGasFluidProperties.h"
 #include "DerivativeMaterialInterface.h"
+#include "MooseParsedVectorFunction.h"
 
 //Forward Declarations
 class NSThermalFluxInterface;
@@ -20,19 +21,22 @@ public:
   NSThermalFluxInterface(const InputParameters & parameters);
 
 protected:
+  // virtual void computeElemNeighResidual(Moose::DGResidualType type);
   virtual Real computeQpResidual(Moose::DGResidualType type);
   virtual Real computeQpJacobian(Moose::DGJacobianType type);
 
 private:
-  MooseVariable & _rho_neighbor_var;
-  const VariableValue & _rho_neighbor;
-  const VariableGradient & _grad_rho_neighbor;
+  const VariableValue & _rho;
+  const VariableGradient & _grad_rho;
   const IdealGasFluidProperties & _fp;
-  const MaterialProperty<Real> & _kappa_neighbor;
+  const MaterialProperty<Real> & _kappa;
 
-  const MaterialProperty<Real> & _kappa; // thermal conductivity
-  const MaterialProperty<Real> & _rho;
-  const MaterialProperty<Real> & _specific_heat;
+  const MaterialProperty<Real> & _kappa_neighbor; // thermal conductivity
+  const MaterialProperty<Real> & _rho_neighbor;
+  const MaterialProperty<Real> & _specific_heat_neighbor;
+
+  Function & _var_flux_func;
+  Function & _neighbor_flux_func;
 };
 
 #endif // NSTHERMALFLUXINTERFACE_H

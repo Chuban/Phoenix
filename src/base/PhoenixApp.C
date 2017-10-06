@@ -8,6 +8,10 @@
 #include "Aluminum7075.h"
 #include "Steatite.h"
 
+#include "InterfaceDiffusion.h"
+#include "NSThermalMatchBC.h"
+#include "NSThermalInterface.h"
+#include "NSThermalFluxInterface.h"
 #include "HeatConductionDMI.h"
 
 #include "CNSFVNoSlipBCUserObject.h"
@@ -18,6 +22,13 @@
 #include "CNSFVThermalResistiveBCUserObject.h"
 #include "CNSFVTempAux.h"
 #include "AirFluidProperties.h"
+
+#include "SolutionTimeAndPostProcessorAdaptiveDT.h"
+
+#include "GlobalTemperatureAux.h"
+
+#include "VarRestrictedGradientJumpIndicator.h"
+#include "InterfaceErrorFractionMarker.h"
 
 template <> InputParameters validParams<PhoenixApp>() {
   InputParameters params = validParams<MooseApp>();
@@ -59,8 +70,12 @@ void PhoenixApp::registerObjects(Factory &factory) {
   // Kernels
   registerNamedKernel(HeatConductionKernelDMI, "HeatConductionDMI");
 
+  // Boundary Conditions
+  registerBoundaryCondition(NSThermalMatchBC);
+
   // Auxkernels
   registerAuxKernel(CNSFVTempAux);
+  registerAuxKernel(GlobalTemperatureAux);
 
   // Postprocessors
 
@@ -73,7 +88,19 @@ void PhoenixApp::registerObjects(Factory &factory) {
   registerUserObject(AirFluidProperties);
 
   // Interface Kernels
+  registerInterfaceKernel(InterfaceDiffusion);
+  registerInterfaceKernel(NSThermalInterface);
+  registerInterfaceKernel(NSThermalFluxInterface);
   registerInterfaceKernel(CNSFVThermalFluxInterface);
+
+  // Time Steppers
+  registerTimeStepper(SolutionTimeAndPostProcessorAdaptiveDT);
+
+  // Indicators
+  registerIndicator(VarRestrictedGradientJumpIndicator);
+
+  // Markers
+  registerMarker(InterfaceErrorFractionMarker);
 }
 
 // External entry point for dynamic syntax association
