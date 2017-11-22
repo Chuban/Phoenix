@@ -5,17 +5,15 @@
 #include "IdealGasFluidProperties.h"
 #include "DerivativeMaterialInterface.h"
 #include "MooseParsedVectorFunction.h"
+#include "PostprocessorInterface.h"
 
 //Forward Declarations
 class NSThermalFluxInterface;
 
-template<>
-InputParameters validParams<NSThermalFluxInterface>();
+template<> InputParameters validParams<NSThermalFluxInterface>();
 
-/**
- * DG kernel for interfacing diffusion between two variables on adjacent blocks
- */
-class NSThermalFluxInterface : public InterfaceKernel
+class NSThermalFluxInterface : public InterfaceKernel,
+                               public PostprocessorInterface
 {
 public:
   NSThermalFluxInterface(const InputParameters & parameters);
@@ -30,13 +28,17 @@ private:
   const VariableGradient & _grad_rho;
   const IdealGasFluidProperties & _fp;
   const MaterialProperty<Real> & _kappa;
+  const MaterialProperty<Real> & _epsilon;
 
   const MaterialProperty<Real> & _kappa_neighbor; // thermal conductivity
-  const MaterialProperty<Real> & _rho_neighbor;
-  const MaterialProperty<Real> & _specific_heat_neighbor;
+  const MaterialProperty<Real> & _epsilon_neighbor;
 
   Function & _var_flux_func;
   Function & _neighbor_flux_func;
+
+  const Real _stefan_boltzmann;
+  const PostprocessorValue & _rad_T;
+
 };
 
 #endif // NSTHERMALFLUXINTERFACE_H

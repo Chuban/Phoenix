@@ -7,14 +7,20 @@
 
 [Mesh]
   type = FileMesh
-  file = /home/ENP/staff/acahill/Projects/phoenix/meshes/WAXTS_3mil_coating.e
+  file = /home/ENP/staff/acahill/Projects/phoenix/meshes/WAXTS_3mil_coating_short.e
   uniform_refine = 0
 []
 
 [Variables]
   [./solid_temperature]
     block = 'solid_wall heat_flux_plate backing holder coupon coating'
-    initial_condition = 500.
+    initial_condition = 301.
+  [../]
+[]
+
+[AuxVariables]
+  [./global_temperature]
+    initial_condition = 300.
   [../]
 []
 
@@ -26,6 +32,11 @@
     value_z = 0
     vars = 'mu sigma'
     vals = '0 0.0058'
+  [../]
+  [./hfp_flux]
+    type = PiecewiseLinear
+    x = '0. 0.01'
+    y = '0. 0.'
   [../]
   [./zero_function]
     type = ParsedVectorFunction
@@ -105,6 +116,24 @@
     fluid_properties = ideal_gas
     var_heat_flux_func = zero_function
     neighbor_heat_flux_func = zero_function
+    radiation_temp = radiation_T
+  [../]
+[]
+
+[AuxKernels]
+  [./add_solid_to_global_T]
+    type = ParsedAux
+    function = solid_temperature
+    args = solid_temperature
+    variable = global_temperature
+    block = 'solid_wall heat_flux_plate backing holder coupon coating'
+  [../]
+  [./add_fluid_to_global_T]
+    type = ParsedAux
+    function = temperature
+    args = temperature
+    variable = global_temperature
+    block = wind_tunnel
   [../]
 []
 
@@ -173,10 +202,15 @@
     boundary = 'slip_wall interface'
   [../]
   [./ambient_temperature]
-    type = DirichletBC
+    type = FunctionNeumannBC
     variable = solid_temperature
-    boundary = exterior
-    value = 500.
+    boundary = hfp
+    function = hfp_flux
+  [../]
+  [./rad_to_ambient]
+    type = RadiationBC
+    boundary = 'exterior hfp'
+    variable = solid_temperature
   [../]
 []
 
@@ -294,6 +328,12 @@
     pressure = pressure
     fluid_properties = ideal_gas
   [../]
+  [./radiation_T]
+    type = SideAverageValue
+    execute_on = 'initial timestep_end'
+    boundary = interface
+    variable = global_temperature
+  [../]
 []
 
 [Preconditioning]
@@ -307,14 +347,14 @@
   # We use trapezoidal quadrature.  This improves stability by
   # mimicking the "group variable" discretization approach.
   # ss_tmin = 0.001
-  num_steps = 100
+  # num_steps = 100
   type = Transient
   dt = 1e-6
   dtmin = 1.e-12
   dtmax = 1.e-3
   start_time = 0.0
-  end_time = 1
-  nl_rel_tol = 1e-6
+  end_time = 0.1
+  nl_rel_tol = 1e-5
   nl_abs_tol = 1e-3 # We need this as we approach steady state.
   nl_max_its = 10
   l_tol = 1e-4
@@ -325,7 +365,7 @@
   petsc_options_value = ' gmres     asm'
   [./TimeStepper]
     type = SolutionTimeAdaptiveDT
-    dt = 1e-6
+    dt = 5e-6
   [../]
   [./Quadrature]
     type = TRAP
@@ -334,7 +374,7 @@
 []
 
 [Adaptivity]
-  marker = final_marker
+  marker = dont_mark
   max_h_level = 1
   [./Indicators]
     [./rho_grad_jump]
@@ -344,6 +384,14 @@
     [./rhou_grad_jump]
       type = VarRestrictedGradientJumpIndicator
       variable = rhou
+    [../]
+    [./rhov_grad_jump]
+      type = VarRestrictedGradientJumpIndicator
+      variable = rhov
+    [../]
+    [./solid_temperature_grad_jump]
+      type = VarRestrictedGradientJumpIndicator
+      variable = solid_temperature
     [../]
   [../]
   [./Markers]
@@ -361,14 +409,28 @@
       refine = 0.25
       coarsen = 0.25
     [../]
+    [./rhov_iefm]
+      type = InterfaceErrorFractionMarker
+      indicator = rhov_grad_jump
+      boundary = interface
+      refine = 0.25
+      coarsen = 0.25
+    [../]
+		[./solid_temperature_iefm]
+      type = InterfaceErrorFractionMarker
+      indicator = solid_temperature_grad_jump
+      boundary = interface
+      refine = 0.25
+      coarsen = 0.25
+    [../]
     [./final_marker]
       type = ComboMarker
-      markers = 'rho_iefm rhou_iefm'
+      markers = 'rho_iefm rhou_iefm rhov_iefm solid_temperature_iefm'
     [../]
-    [./do_nothing_marker]
-      type = UniformMarker
-      mark = DO_NOTHING
-    [../]
+    [./dont_mark]
+			type = UniformMarker
+			mark = DO_NOTHING
+		[../]
   [../]
 []
 
@@ -379,7 +441,7 @@
     file_base = WAXTS_3mil_coating_1mps_init_output
     execute_on = 'initial timestep_end final'
     output_material_properties = false
-    interval = 1
+    interval = 25
   [../]
   [./CONSOLE]
     type = Console
@@ -387,5 +449,10 @@
     output_nonlinear = true
     interval = 1
   [../]
+	[./Checkpoint]
+		type = Checkpoint
+		num_files = 5
+		interval = 1
+	[../]
 []
 

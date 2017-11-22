@@ -17,6 +17,11 @@ protected:
   virtual MarkerValue computeElementMarker() override;
 
   const BoundaryID _bnd_id;
+
+private:
+	MarkerValue getMaxChildMarker(const Elem *, unsigned int);
+  unsigned int getMaxChildLevel(const Elem *);
+
 };
 
 #endif /* INTERFACEERRORFRACTIONMARKER_H */

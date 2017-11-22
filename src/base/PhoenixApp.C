@@ -13,6 +13,7 @@
 #include "NSThermalInterface.h"
 #include "NSThermalFluxInterface.h"
 #include "HeatConductionDMI.h"
+#include "RadiationBC.h"
 
 #include "CNSFVNoSlipBCUserObject.h"
 #include "CNSFVHLLCViscousBoundaryFlux.h"
@@ -72,6 +73,7 @@ void PhoenixApp::registerObjects(Factory &factory) {
 
   // Boundary Conditions
   registerBoundaryCondition(NSThermalMatchBC);
+  registerBoundaryCondition(RadiationBC);
 
   // Auxkernels
   registerAuxKernel(CNSFVTempAux);
