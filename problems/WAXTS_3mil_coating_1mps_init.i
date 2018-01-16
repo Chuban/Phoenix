@@ -7,7 +7,7 @@
 
 [Mesh]
   type = FileMesh
-  file = /home/ENP/staff/acahill/Projects/phoenix/meshes/WAXTS_3mil_coating_short.e
+  file = /home/ENP/staff/acahill/Projects/phoenix/meshes/WAXTS_3mil_coating_short_bl20.e
   uniform_refine = 0
 []
 
@@ -201,16 +201,22 @@
     desired_velocity = 0.
     boundary = 'slip_wall interface'
   [../]
+#  [./ambient_flux]
+#    type = FunctionNeumannBC
+#    variable = solid_temperature
+#    boundary = hfp
+#    function = hfp_flux
+#  [../]
+#  [./rad_to_ambient]
+#    type = RadiationBC
+#    boundary = 'exterior hfp'
+#    variable = solid_temperature
+#  [../]
   [./ambient_temperature]
-    type = FunctionNeumannBC
+    type = DirichletBC
     variable = solid_temperature
-    boundary = hfp
-    function = hfp_flux
-  [../]
-  [./rad_to_ambient]
-    type = RadiationBC
     boundary = 'exterior hfp'
-    variable = solid_temperature
+    value = 301.
   [../]
 []
 
@@ -337,9 +343,39 @@
 []
 
 [Preconditioning]
-  [./SMP_PJFNK]
+  active = 'FSP'
+  [./SMP]
     type = SMP
+    solve_type = PJFNK
     full = true
+    petsc_options = ''
+    petsc_options_iname = '-pc_type -pc_hypre_type -snes_type'
+    petsc_options_value = 'hypre boomeramg ksponly'
+  [../]
+  [./FSP]
+    type = FSP
+    solve_type = PJFNK
+    full = true
+    topsplit = 'T-NS'
+    [./T-NS]
+      splitting = 'temperature NS'
+      splitting_type = additive
+      petsc_options = ''
+      petsc_options_iname = ''
+      petsc_options_value = ''
+    [../]
+    [./temperature]
+      vars = 'solid_temperature'
+      petsc_options = ''
+      petsc_options_iname = '-pc_type -pc_hypre_type'
+      petsc_options_value = 'hypre boomeramg'
+    [../]
+    [./NS]
+      vars = 'rho rhou rhov rhoE'
+      petsc_options = ''
+      petsc_options_iname = '-pc_type -pc_factor_mat_solver_package'
+      petsc_options_value = 'lu mumps'
+    [../]
   [../]
 []
 
@@ -347,25 +383,23 @@
   # We use trapezoidal quadrature.  This improves stability by
   # mimicking the "group variable" discretization approach.
   # ss_tmin = 0.001
-  # num_steps = 100
+  # num_steps = 10
   type = Transient
   dt = 1e-6
   dtmin = 1.e-12
-  dtmax = 1.e-3
+  dtmax = 1.e-5
   start_time = 0.0
-  end_time = 0.1
-  nl_rel_tol = 1e-5
+  end_time = 1e-1
+  nl_rel_tol = 1e-2
   nl_abs_tol = 1e-3 # We need this as we approach steady state.
   nl_max_its = 10
-  l_tol = 1e-4
+  l_tol = 1e-2
   l_max_its = 25
-  trans_ss_check = true
+  trans_ss_check = false
   ss_check_tol = 1e-9
-  petsc_options_iname = '-ksp_type -pc_type'
-  petsc_options_value = ' gmres     asm'
   [./TimeStepper]
     type = SolutionTimeAdaptiveDT
-    dt = 5e-6
+    dt = 1e-6
   [../]
   [./Quadrature]
     type = TRAP
@@ -399,29 +433,29 @@
       type = InterfaceErrorFractionMarker
       indicator = rho_grad_jump
       boundary = interface
-      refine = 0.25
-      coarsen = 0.25
+      refine = 0.1
+      coarsen = 0.1
     [../]
     [./rhou_iefm]
       type = InterfaceErrorFractionMarker
       indicator = rhou_grad_jump
       boundary = interface
-      refine = 0.25
-      coarsen = 0.25
+      refine = 0.1
+      coarsen = 0.1
     [../]
     [./rhov_iefm]
       type = InterfaceErrorFractionMarker
       indicator = rhov_grad_jump
       boundary = interface
-      refine = 0.25
-      coarsen = 0.25
+      refine = 0.1
+      coarsen = 0.1
     [../]
 		[./solid_temperature_iefm]
       type = InterfaceErrorFractionMarker
       indicator = solid_temperature_grad_jump
       boundary = interface
-      refine = 0.25
-      coarsen = 0.25
+      refine = 0.1
+      coarsen = 0.1
     [../]
     [./final_marker]
       type = ComboMarker
@@ -441,7 +475,7 @@
     file_base = WAXTS_3mil_coating_1mps_init_output
     execute_on = 'initial timestep_end final'
     output_material_properties = false
-    interval = 25
+    interval = 1
   [../]
   [./CONSOLE]
     type = Console
@@ -451,7 +485,7 @@
   [../]
 	[./Checkpoint]
 		type = Checkpoint
-		num_files = 5
+		num_files = 2
 		interval = 1
 	[../]
 []

@@ -60,6 +60,9 @@ public:
 
   virtual Real p_from_h_s(Real h, Real s) const override;
   virtual Real dpdh_from_h_s(Real h, Real s) const override;
+  virtual Real dpds_from_h_s(Real h, Real s) const override;
+
+  virtual void s_from_h_p(Real h, Real p, Real & s, Real & ds_dh, Real & ds_dp) const override;
 
   virtual Real P(Real rho, Real temperature) const override;
 

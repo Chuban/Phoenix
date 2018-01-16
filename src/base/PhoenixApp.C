@@ -18,7 +18,6 @@
 #include "CNSFVNoSlipBCUserObject.h"
 #include "CNSFVHLLCViscousBoundaryFlux.h"
 #include "CNSFVHLLCViscousInternalSideFlux.h"
-#include "CNSFVThermalFluxInterface.h"
 #include "CNSFVThermalBCUserObject.h"
 #include "CNSFVThermalResistiveBCUserObject.h"
 #include "CNSFVTempAux.h"
@@ -93,7 +92,6 @@ void PhoenixApp::registerObjects(Factory &factory) {
   registerInterfaceKernel(InterfaceDiffusion);
   registerInterfaceKernel(NSThermalInterface);
   registerInterfaceKernel(NSThermalFluxInterface);
-  registerInterfaceKernel(CNSFVThermalFluxInterface);
 
   // Time Steppers
   registerTimeStepper(SolutionTimeAndPostProcessorAdaptiveDT);

@@ -147,6 +147,17 @@ Real AirFluidProperties::dpdh_from_h_s(Real, Real) const
   return 0.;
 }
 
+Real AirFluidProperties::dpds_from_h_s(Real, Real) const
+{
+  mooseError(name(), ": dpds_from_h_s() not implemented.");
+  return 0.;
+}
+
+void AirFluidProperties::s_from_h_p(Real, Real, Real &, Real &, Real &) const
+{
+  mooseError(name(), ": s_from_h_p() not implemented.");
+}
+
 Real AirFluidProperties::P(Real rho, Real temperature) const
 {
   return rho * _interpHelper(temperature, 1, 7);
