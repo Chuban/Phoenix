@@ -3,7 +3,10 @@
 
 #include "NSTemperatureAux.h"
 
-template <> InputParameters validParams<NSTemperatureAux>();
+class GlobalTemperatureAux;
+
+template <>
+InputParameters validParams<GlobalTemperatureAux>();
 
 class GlobalTemperatureAux : public NSTemperatureAux
 {

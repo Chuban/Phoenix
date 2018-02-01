@@ -22,7 +22,7 @@ std::vector<Real>
 CNSFVNoSlipBCUserObject::getGhostCellValue(unsigned int /*iside*/,
                                            unsigned int /*ielem*/,
                                            const std::vector<Real> & uvec1,
-                                           const RealVectorValue & dwave) const
+                                           const RealVectorValue & /*dwave*/) const
 {
   /// pass the inputs to local
 
@@ -32,9 +32,9 @@ CNSFVNoSlipBCUserObject::getGhostCellValue(unsigned int /*iside*/,
   Real rhow1 = uvec1[3];
   Real rhoe1 = uvec1[4];
 
-  Real nx = dwave(0);
-  Real ny = dwave(1);
-  Real nz = dwave(2);
+  // Real nx = dwave(0);
+  // Real ny = dwave(1);
+  // Real nz = dwave(2);
 
   std::vector<Real> urigh(5, 0.);
 
