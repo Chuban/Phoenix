@@ -7,7 +7,7 @@
 
 [Mesh]
   type = FileMesh
-  file = /home/ENP/staff/acahill/Projects/phoenix/meshes/WAXTS_3mil_coating_short_bl20.e
+  file = /home/acahill/Projects/phoenix/meshes/WAXTS_3mil_coating_short_bl20.e
   uniform_refine = 0
 []
 

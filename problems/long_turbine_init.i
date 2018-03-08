@@ -7,7 +7,7 @@
 
 [Mesh]
   type = FileMesh
-  file = /home/ENP/staff/acahill/Projects/phoenix/meshes/long_turbine.e
+  file = /home/acahill/Projects/phoenix/meshes/long_turbine.e
   uniform_refine = 0
 []
 
@@ -331,7 +331,7 @@
   # We use trapezoidal quadrature.  This improves stability by
   # mimicking the "group variable" discretization approach.
   # ss_tmin = 0.001
-  # num_steps = 100
+  # num_steps = 10
   type = Transient
   dt = 1e-6
   dtmin = 1.e-12

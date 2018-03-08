@@ -15,16 +15,6 @@
 #include "HeatConductionDMI.h"
 #include "RadiationBC.h"
 
-#include "CNSFVNoSlipBCUserObject.h"
-#include "CNSFVHLLCViscousBoundaryFlux.h"
-#include "CNSFVHLLCViscousInternalSideFlux.h"
-#include "CNSFVThermalBCUserObject.h"
-#include "CNSFVThermalResistiveBCUserObject.h"
-#include "CNSFVTempAux.h"
-#include "AirFluidProperties.h"
-
-#include "SolutionTimeAndPostProcessorAdaptiveDT.h"
-
 #include "GlobalTemperatureAux.h"
 
 #include "VarRestrictedGradientJumpIndicator.h"
@@ -75,18 +65,7 @@ void PhoenixApp::registerObjects(Factory &factory) {
   registerBoundaryCondition(RadiationBC);
 
   // Auxkernels
-  registerAuxKernel(CNSFVTempAux);
   registerAuxKernel(GlobalTemperatureAux);
-
-  // Postprocessors
-
-  // User Objects
-  registerUserObject(CNSFVNoSlipBCUserObject);
-  registerUserObject(CNSFVHLLCViscousBoundaryFlux);
-  registerUserObject(CNSFVHLLCViscousInternalSideFlux);
-  registerUserObject(CNSFVThermalBCUserObject);
-  registerUserObject(CNSFVThermalResistiveBCUserObject);
-  registerUserObject(AirFluidProperties);
 
   // Interface Kernels
   registerInterfaceKernel(InterfaceDiffusion);
@@ -94,7 +73,6 @@ void PhoenixApp::registerObjects(Factory &factory) {
   registerInterfaceKernel(NSThermalFluxInterface);
 
   // Time Steppers
-  registerTimeStepper(SolutionTimeAndPostProcessorAdaptiveDT);
 
   // Indicators
   registerIndicator(VarRestrictedGradientJumpIndicator);
